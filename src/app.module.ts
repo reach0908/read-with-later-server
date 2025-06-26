@@ -7,6 +7,7 @@ import { DatabaseModule } from 'src/database/database.module';
 import databaseConfig from 'src/config/database.config';
 import authConfig from 'src/config/auth.config';
 import appConfig from 'src/config/app.config';
+import { AuthModule } from 'src/modules/auth/auth.module';
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import appConfig from 'src/config/app.config';
 			load: [databaseConfig, authConfig, appConfig],
 		}),
 		DatabaseModule,
+		AuthModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
