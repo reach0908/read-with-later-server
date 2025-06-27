@@ -2,7 +2,7 @@ export interface JwtPayload {
 	sub: string;
 	email: string;
 	name?: string | null;
-	type: 'access' | 'refresh';
+	type: TokenType;
 	// JWT 표준 필드
 	readonly iat?: number;
 	readonly exp?: number;
@@ -19,4 +19,9 @@ export interface GoogleProfile {
 	photos?: Array<{ value: string }>;
 	id: string;
 	provider: string;
+}
+
+export enum TokenType {
+	ACCESS = 'access',
+	REFRESH = 'refresh',
 }

@@ -1,16 +1,11 @@
 import { Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { User } from '@prisma/client';
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { AuthService } from './services/auth.service';
 import { setAccessTokenCookie, setRefreshTokenCookie, clearAllTokenCookies } from './utils/auth.util';
 import { TokenService } from './services/token.service';
-
-interface AuthenticatedRequest extends Request {
-	user?: User;
-}
 
 @Controller('auth')
 export class AuthController {
@@ -28,7 +23,7 @@ export class AuthController {
 
 	@Get('google/callback')
 	@UseGuards(AuthGuard('google'))
-	async googleCallback(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+	async googleCallback(@Req() req: Request, @Res() res: Response) {
 		try {
 			const user = req.user;
 
@@ -57,7 +52,7 @@ export class AuthController {
 	@Post('refresh')
 	async refreshTokens(@Req() req: Request, @Res() res: Response) {
 		try {
-			const refreshToken = req.cookies?.refresh_token as string;
+			const refreshToken = req.cookies?.refresh_token;
 
 			if (!refreshToken) {
 				return res.status(401).json({ message: 'Refresh token not found' });
@@ -83,7 +78,7 @@ export class AuthController {
 
 	@Post('logout')
 	@UseGuards(JwtAuthGuard)
-	async logout(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+	async logout(@Req() req: Request, @Res() res: Response) {
 		try {
 			const user = req.user;
 

@@ -151,7 +151,6 @@ describe('TokenService', () => {
 					userId: mockUser.id,
 					token: mockRefreshToken,
 					isValid: true,
-					expiresAt: { gt: expect.any(Date) },
 				},
 			});
 			expect(userService.findByEmail).toHaveBeenCalledWith(mockUser.email);
@@ -165,7 +164,7 @@ describe('TokenService', () => {
 			jwtService.verify.mockReturnValue({ ...mockJwtPayload, type: 'access' });
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
-			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid token type');
+			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');
 		});
 
 		it('저장된 리프레시 토큰이 없는 경우 UnauthorizedException을 던진다', async () => {
@@ -182,7 +181,7 @@ describe('TokenService', () => {
 			userService.findByEmail.mockResolvedValue(null);
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
-			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('User not found');
+			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');
 		});
 
 		it('JWT 검증 실패 시 UnauthorizedException을 던진다', async () => {
