@@ -147,7 +147,12 @@ describe('TokenService', () => {
 
 			expect(jwtService.verify).toHaveBeenCalledWith(mockRefreshToken);
 			expect(prismaService.refreshToken.findFirst).toHaveBeenCalledWith({
-				where: { token: mockRefreshToken },
+				where: {
+					userId: mockUser.id,
+					token: mockRefreshToken,
+					isValid: true,
+					expiresAt: { gt: expect.any(Date) },
+				},
 			});
 			expect(userService.findByEmail).toHaveBeenCalledWith(mockUser.email);
 			expect(result).toEqual({
@@ -205,6 +210,7 @@ describe('TokenService', () => {
 				data: {
 					token: mockRefreshToken,
 					userId: mockUser.id,
+					isValid: true,
 					expiresAt: expect.any(Date) as Date,
 				},
 			});

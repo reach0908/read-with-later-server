@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Request, Response } from 'express';
+import { JwtService } from '@nestjs/jwt';
 import { AuthController } from 'src/modules/auth/auth.controller';
 import { TokenService } from 'src/modules/auth/services/token.service';
 import { AuthService } from 'src/modules/auth/services/auth.service';
@@ -16,6 +17,7 @@ describe('AuthController', () => {
 	let tokenService: { generateTokenPair: jest.Mock; refreshTokens: jest.Mock; logout: jest.Mock };
 	let authService: { validateUser: jest.Mock };
 	let configService: { get: jest.Mock };
+	let jwtService: { sign: jest.Mock; verify: jest.Mock };
 
 	const mockUser: User = {
 		id: '1',
@@ -42,12 +44,18 @@ describe('AuthController', () => {
 			get: jest.fn(),
 		};
 
+		jwtService = {
+			sign: jest.fn(),
+			verify: jest.fn(),
+		};
+
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AuthController],
 			providers: [
 				{ provide: TokenService, useValue: tokenService },
 				{ provide: AuthService, useValue: authService },
 				{ provide: ConfigService, useValue: configService },
+				{ provide: JwtService, useValue: jwtService },
 			],
 		}).compile();
 
@@ -66,6 +74,7 @@ describe('AuthController', () => {
 			} as unknown as AuthenticatedRequest;
 			const mockRes = {
 				redirect: jest.fn(),
+				cookie: jest.fn(),
 			} as unknown as Response;
 
 			configService.get.mockReturnValue('http://localhost:3000');
@@ -83,6 +92,7 @@ describe('AuthController', () => {
 			} as unknown as AuthenticatedRequest;
 			const mockRes = {
 				redirect: jest.fn(),
+				cookie: jest.fn(),
 			} as unknown as Response;
 
 			configService.get.mockReturnValue('http://localhost:3000');
@@ -104,6 +114,8 @@ describe('AuthController', () => {
 			} as unknown as Request;
 			const mockRes = {
 				json: jest.fn(() => mockRes),
+				cookie: jest.fn(),
+				clearCookie: jest.fn(),
 			} as unknown as Response;
 
 			const newTokens = { accessToken: 'new-access-token', refreshToken: 'new-refresh-token' };
@@ -122,6 +134,8 @@ describe('AuthController', () => {
 			const mockRes = {
 				status: jest.fn().mockReturnThis(),
 				json: jest.fn(),
+				cookie: jest.fn(),
+				clearCookie: jest.fn(),
 			} as unknown as Response;
 
 			await controller.refreshTokens(mockReq, mockRes);
@@ -138,6 +152,8 @@ describe('AuthController', () => {
 			} as unknown as AuthenticatedRequest;
 			const mockRes = {
 				json: jest.fn(() => mockRes),
+				cookie: jest.fn(),
+				clearCookie: jest.fn(),
 			} as unknown as Response;
 
 			tokenService.logout.mockResolvedValue(undefined);

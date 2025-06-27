@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
@@ -48,10 +48,10 @@ describe('AuthService', () => {
 			expect(result).toEqual(mockUser);
 		});
 
-		it('존재하지 않는 유저의 경우 UnauthorizedException을 던진다', async () => {
+		it('존재하지 않는 유저의 경우 NotFoundException을 던진다', async () => {
 			userService.findByEmail.mockResolvedValue(null);
 
-			await expect(service.validateUser('none@test.com')).rejects.toThrow(UnauthorizedException);
+			await expect(service.validateUser('none@test.com')).rejects.toThrow(NotFoundException);
 			await expect(service.validateUser('none@test.com')).rejects.toThrow('Invalid credentials');
 		});
 
