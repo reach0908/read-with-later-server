@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-google-oauth20';
-import { AuthService } from '../auth.service';
+import { OAuthService } from '../services/oauth.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 	constructor(
 		private configService: ConfigService,
-		private authService: AuthService,
+		private oauthService: OAuthService,
 	) {
 		super({
 			clientID: configService.get<string>('auth.GOOGLE_CLIENT_ID') || '',
@@ -19,7 +19,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 	}
 
 	async validate(accessToken: string, refreshToken: string, profile: any) {
-		const user = await this.authService.handleGoogleLogin(profile);
+		const user = await this.oauthService.handleGoogleLogin(profile);
 		return user;
 	}
 }

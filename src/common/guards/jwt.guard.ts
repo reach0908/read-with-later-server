@@ -1,7 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
-import { AuthService, JwtPayload } from 'src/modules/auth/auth.service';
+import { AuthService } from 'src/modules/auth/services/auth.service';
+import { TokenService } from 'src/modules/auth/services/token.service';
+import { JwtPayload } from 'src/types';
 
 interface AuthenticatedRequest extends Request {
 	user?: any;
@@ -12,6 +14,7 @@ interface AuthenticatedRequest extends Request {
 export class JwtAuthGuard implements CanActivate {
 	constructor(
 		private readonly jwtService: JwtService,
+		private readonly tokenService: TokenService,
 		private readonly authService: AuthService,
 	) {}
 
@@ -46,7 +49,7 @@ export class JwtAuthGuard implements CanActivate {
 			if (refreshToken) {
 				try {
 					const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
-						await this.authService.refreshTokens(refreshToken);
+						await this.tokenService.refreshTokens(refreshToken);
 
 					// 새로운 RefreshToken을 쿠키에 설정
 					this.setRefreshTokenCookie(response, newRefreshToken);

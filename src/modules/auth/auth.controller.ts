@@ -4,8 +4,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { User } from '@prisma/client';
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
-import { AuthService } from './auth.service';
+import { AuthService } from './services/auth.service';
 import { setAccessTokenCookie, setRefreshTokenCookie, clearAllTokenCookies } from './utils/auth.util';
+import { TokenService } from './services/token.service';
 
 interface AuthenticatedRequest extends Request {
 	user?: User;
@@ -14,6 +15,7 @@ interface AuthenticatedRequest extends Request {
 @Controller('auth')
 export class AuthController {
 	constructor(
+		private readonly tokenService: TokenService,
 		private readonly authService: AuthService,
 		private readonly configService: ConfigService,
 	) {}
@@ -37,7 +39,7 @@ export class AuthController {
 			}
 
 			// 토큰 쌍 생성
-			const { accessToken, refreshToken } = await this.authService.generateTokenPair(user);
+			const { accessToken, refreshToken } = await this.tokenService.generateTokenPair(user);
 
 			// 두 토큰 모두 쿠키에 설정
 			setAccessTokenCookie(res, accessToken);
@@ -62,7 +64,7 @@ export class AuthController {
 			}
 
 			// 새로운 토큰 쌍 생성 (슬라이딩 윈도우)
-			const { accessToken, refreshToken: newRefreshToken } = await this.authService.refreshTokens(refreshToken);
+			const { accessToken, refreshToken: newRefreshToken } = await this.tokenService.refreshTokens(refreshToken);
 
 			// 두 토큰 모두 쿠키에 설정
 			setAccessTokenCookie(res, accessToken);
@@ -87,7 +89,7 @@ export class AuthController {
 
 			if (user) {
 				// 사용자의 모든 리프레시 토큰 삭제 (개선된 방식)
-				await this.authService.logout(user.id);
+				await this.tokenService.logout(user.id);
 			}
 
 			// 모든 토큰 쿠키 삭제
