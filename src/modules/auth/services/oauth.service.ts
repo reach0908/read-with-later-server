@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { UserService } from 'src/modules/user/user.service';
 import { GoogleProfile } from 'src/types';
@@ -12,7 +12,7 @@ export class OAuthService {
 	async handleGoogleLogin(profile: GoogleProfile): Promise<User | null> {
 		if (!profile || !Array.isArray(profile.emails) || !profile.emails[0]?.value) {
 			this.logger.warn('Google profile does not contain email');
-			throw new Error('Google profile does not contain email');
+			throw new BadRequestException('Google profile does not contain email');
 		}
 		const email = profile.emails[0].value;
 		const name = typeof profile.displayName === 'string' ? profile.displayName : null;

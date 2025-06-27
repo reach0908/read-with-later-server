@@ -7,7 +7,6 @@ import { JwtPayload } from 'src/types';
 
 interface AuthenticatedRequest extends Request {
 	user?: any;
-	newAccessToken?: string; // 자동 갱신된 새로운 AccessToken
 }
 
 @Injectable()
@@ -51,22 +50,19 @@ export class JwtAuthGuard implements CanActivate {
 					const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
 						await this.tokenService.refreshTokens(refreshToken);
 
-					// 새로운 RefreshToken을 쿠키에 설정
+					// 새로운 토큰들을 쿠키에 설정
+					this.setAccessTokenCookie(response, newAccessToken);
 					this.setRefreshTokenCookie(response, newRefreshToken);
-
-					// 새로운 AccessToken을 응답 헤더에 추가
-					response.setHeader('X-New-Access-Token', newAccessToken);
 
 					// 새로운 Access Token으로 사용자 정보 추출
 					const payload = this.jwtService.verify<JwtPayload>(newAccessToken);
 					const user = await this.authService.validateUser(payload.email);
 					request.user = user;
-					request.newAccessToken = newAccessToken;
 
 					return true;
 				} catch {
 					// Refresh Token도 유효하지 않으면 쿠키 삭제
-					this.clearRefreshTokenCookie(response);
+					this.clearAuthCookies(response);
 					throw new UnauthorizedException('Invalid refresh token');
 				}
 			}
@@ -75,7 +71,18 @@ export class JwtAuthGuard implements CanActivate {
 		}
 	}
 
-	private setRefreshTokenCookie(res: Response, refreshToken: string) {
+	private setAccessTokenCookie(res: Response, accessToken: string): void {
+		const isProduction = process.env.NODE_ENV === 'production';
+
+		res.cookie('access_token', accessToken, {
+			httpOnly: true,
+			secure: isProduction,
+			sameSite: 'lax',
+			maxAge: 15 * 60 * 1000, // 15분
+		});
+	}
+
+	private setRefreshTokenCookie(res: Response, refreshToken: string): void {
 		const isProduction = process.env.NODE_ENV === 'production';
 
 		res.cookie('refresh_token', refreshToken, {
@@ -86,7 +93,8 @@ export class JwtAuthGuard implements CanActivate {
 		});
 	}
 
-	private clearRefreshTokenCookie(res: Response) {
+	private clearAuthCookies(res: Response): void {
+		res.clearCookie('access_token');
 		res.clearCookie('refresh_token');
 	}
 }
