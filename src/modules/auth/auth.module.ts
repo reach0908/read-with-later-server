@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
+
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { UserModule } from '../user/user.module';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { DatabaseModule } from 'src/database/database.module';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { GoogleStrategy } from './strategies/google.strategy';
-import { UserModule } from '../user/user.module';
 
 @Module({
 	imports: [
@@ -17,10 +18,7 @@ import { UserModule } from '../user/user.module';
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
 			useFactory: (configService: ConfigService) => ({
-				secret: configService.get<string>('auth.JWT_SECRET'),
-				signOptions: {
-					expiresIn: configService.get<string>('auth.JWT_EXPIRES_IN'),
-				},
+				secret: configService.get<string>('JWT_SECRET'),
 			}),
 			inject: [ConfigService],
 		}),

@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import { UserService } from 'src/modules/user/user.service';
@@ -30,7 +29,6 @@ export class AuthService {
 	constructor(
 		private readonly userService: UserService,
 		private readonly jwtService: JwtService,
-		private readonly configService: ConfigService,
 		private readonly prisma: PrismaService,
 	) {}
 
@@ -42,7 +40,7 @@ export class AuthService {
 		return user;
 	}
 
-	generateAccessToken(user: User): string {
+	private generateAccessToken(user: User): string {
 		const payload: JwtPayload = {
 			sub: user.id,
 			email: user.email,
@@ -55,7 +53,7 @@ export class AuthService {
 		});
 	}
 
-	generateRefreshToken(user: User): string {
+	private generateRefreshToken(user: User): string {
 		const payload: JwtPayload = {
 			sub: user.id,
 			email: user.email,
@@ -72,7 +70,7 @@ export class AuthService {
 		const accessToken = this.generateAccessToken(user);
 		const refreshToken = this.generateRefreshToken(user);
 
-		// RefreshToken을 DB에 저장 (해시화해서 저장)
+		// RefreshToken을 DB에 저장 (기존 토큰들은 삭제)
 		await this.saveRefreshToken(user.id, refreshToken);
 
 		return {
@@ -96,6 +94,9 @@ export class AuthService {
 					userId: payload.sub,
 					token: refreshToken,
 					isValid: true,
+					expiresAt: {
+						gt: new Date(), // 만료되지 않은 토큰만
+					},
 				},
 			});
 
@@ -109,8 +110,8 @@ export class AuthService {
 				throw new UnauthorizedException('User not found');
 			}
 
-			// 기존 RefreshToken 무효화
-			await this.invalidateRefreshToken(refreshToken);
+			// 기존 RefreshToken 삭제 (무효화가 아닌 완전 삭제)
+			await this.removeRefreshToken(refreshToken);
 
 			// 새로운 토큰 쌍 생성 (슬라이딩 윈도우)
 			return await this.generateTokenPair(user);
@@ -119,49 +120,50 @@ export class AuthService {
 		}
 	}
 
+	/**
+	 * 리프레시 토큰을 저장하고 기존 토큰들을 정리합니다.
+	 * 슬라이딩 윈도우 전략: 하나의 유효한 토큰만 유지
+	 */
 	async saveRefreshToken(userId: string, token: string): Promise<void> {
-		// 기존 유효한 토큰들 무효화
-		await this.prisma.refreshToken.updateMany({
-			where: {
-				userId,
-				isValid: true,
-			},
-			data: {
-				isValid: false,
-			},
-		});
+		// 트랜잭션으로 원자적 처리
+		await this.prisma.$transaction(async (tx) => {
+			// 기존 토큰들 완전 삭제 (무효화가 아닌 삭제)
+			await tx.refreshToken.deleteMany({
+				where: {
+					userId,
+				},
+			});
 
-		// 새 토큰 저장
-		await this.prisma.refreshToken.create({
-			data: {
-				userId,
+			// 새 토큰 저장
+			await tx.refreshToken.create({
+				data: {
+					userId,
+					token,
+					isValid: true,
+					expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7일
+				},
+			});
+		});
+	}
+
+	/**
+	 * 특정 리프레시 토큰을 삭제합니다.
+	 */
+	async removeRefreshToken(token: string): Promise<void> {
+		await this.prisma.refreshToken.deleteMany({
+			where: {
 				token,
-				isValid: true,
-				expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7일
 			},
 		});
 	}
 
-	async invalidateRefreshToken(token: string): Promise<void> {
-		await this.prisma.refreshToken.updateMany({
-			where: {
-				token,
-			},
-			data: {
-				isValid: false,
-			},
-		});
-	}
-
+	/**
+	 * 사용자의 모든 리프레시 토큰을 삭제합니다. (로그아웃)
+	 */
 	async logout(userId: string): Promise<void> {
-		// 사용자의 모든 RefreshToken 무효화
-		await this.prisma.refreshToken.updateMany({
+		await this.prisma.refreshToken.deleteMany({
 			where: {
 				userId,
-				isValid: true,
-			},
-			data: {
-				isValid: false,
 			},
 		});
 	}

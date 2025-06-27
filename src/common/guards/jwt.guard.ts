@@ -19,10 +19,8 @@ export class JwtAuthGuard implements CanActivate {
 		const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 		const response = context.switchToHttp().getResponse<Response>();
 
-		// Authorization 헤더에서 AccessToken 추출
-		const authorization = request.headers.authorization;
-		const accessToken = authorization?.startsWith('Bearer ') ? authorization.substring(7) : null;
-
+		// Access Token을 쿠키에서 추출
+		const accessToken = request.cookies?.access_token as string;
 		const refreshToken = request.cookies?.refresh_token as string;
 
 		// Access Token이 없으면 거부
