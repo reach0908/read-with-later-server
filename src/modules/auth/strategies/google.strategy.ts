@@ -1,37 +1,35 @@
-import { PassportStrategy } from '@nestjs/passport';
-import { Profile, Strategy } from 'passport-google-oauth20';
-
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { Strategy } from 'passport-google-oauth20';
 import { ConfigType } from '@nestjs/config';
-import authConfig from 'src/config/auth.config';
+
+import authConfigType from 'src/config/auth.config';
+
+import { PROVIDER } from 'src/modules/auth/constants/strategy.constant';
+import { OAuthService } from 'src/modules/auth/services/oauth.service';
+import { GoogleProfile } from 'src/types';
+import { User } from '@prisma/client';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+export class GoogleStrategy extends PassportStrategy(Strategy, PROVIDER.GOOGLE) {
 	constructor(
-		@Inject(authConfig.KEY)
-		private readonly config: ConfigType<typeof authConfig>,
+		@Inject(authConfigType.KEY)
+		private readonly configService: ConfigType<typeof authConfigType>,
+		private oauthService: OAuthService,
 	) {
 		super({
-			clientID: config.GOOGLE_CLIENT_ID,
-			clientSecret: config.GOOGLE_CLIENT_SECRET,
-			callbackURL: 'http://localhost:3000/auth/google/callback',
+			clientID: configService.GOOGLE_CLIENT_ID!,
+			clientSecret: configService.GOOGLE_CLIENT_SECRET!,
+			callbackURL: configService.GOOGLE_CALLBACK_URL,
 			scope: ['email', 'profile'],
 		});
 	}
 
-	validate(accessToken: string, refreshToken: string, profile: Profile) {
-		const { id, emails, displayName } = profile;
-
-		if (!emails?.[0]?.value) {
-			throw new UnauthorizedException('Email not found');
+	async validate(accessToken: string, refreshToken: string, profile: GoogleProfile): Promise<User> {
+		const user = await this.oauthService.handleGoogleLogin(profile);
+		if (!user) {
+			throw new UnauthorizedException('Google login failed');
 		}
-
-		return {
-			provider: 'google',
-			providerId: id,
-			email: emails[0].value,
-			name: displayName,
-			accessToken,
-		};
+		return user;
 	}
 }

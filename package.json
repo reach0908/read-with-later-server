@@ -20,15 +20,24 @@
 		"test:e2e": "jest --config ./test/jest-e2e.json",
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "prisma migrate dev",
-		"prisma:studio": "prisma studio"
+		"prisma:migrate:local": "dotenv -e .env.local -- prisma migrate dev",
+		"prisma:migrate:dev": "dotenv -e .env.dev -- prisma migrate dev",
+		"prisma:migrate:staging": "dotenv -e .env.staging -- prisma migrate dev",
+		"prisma:migrate:prod": "dotenv -e .env.prod -- prisma migrate deploy",
+		"prisma:studio": "prisma studio",
+		"prisma:studio:local": "dotenv -e .env.local -- prisma studio",
+		"prisma:studio:dev": "dotenv -e .env.dev -- prisma studio",
+		"prisma:studio:staging": "dotenv -e .env.staging -- prisma studio"
 	},
 	"dependencies": {
 		"@nestjs/common": "^11.0.1",
 		"@nestjs/config": "^4.0.2",
 		"@nestjs/core": "^11.0.1",
+		"@nestjs/jwt": "^11.0.0",
 		"@nestjs/passport": "^11.0.5",
 		"@nestjs/platform-express": "^11.0.1",
 		"@prisma/client": "^6.10.1",
+		"cookie-parser": "^1.4.7",
 		"passport": "^0.7.0",
 		"passport-google-oauth20": "^2.0.0",
 		"reflect-metadata": "^0.2.2",
@@ -42,11 +51,13 @@
 		"@nestjs/testing": "^11.0.1",
 		"@swc/cli": "^0.6.0",
 		"@swc/core": "^1.10.7",
+		"@types/cookie-parser": "^1.4.9",
 		"@types/express": "^5.0.0",
 		"@types/jest": "^29.5.14",
 		"@types/node": "^22.10.7",
 		"@types/passport-google-oauth20": "^2.0.16",
 		"@types/supertest": "^6.0.2",
+		"dotenv-cli": "^8.0.0",
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-prettier": "^5.2.2",
@@ -78,6 +89,9 @@
 			"**/*.(t|j)s"
 		],
 		"coverageDirectory": "../coverage",
-		"testEnvironment": "node"
+		"testEnvironment": "node",
+		"moduleNameMapper": {
+			"^src/(.*)$": "<rootDir>/$1"
+		}
 	}
 }
