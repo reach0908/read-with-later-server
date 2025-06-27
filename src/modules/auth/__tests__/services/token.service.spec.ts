@@ -5,7 +5,8 @@ import { TokenService } from 'src/modules/auth/services/token.service';
 import { PrismaService } from 'src/database/prisma.service';
 import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
-import { JwtPayload } from 'src/types';
+import { JwtPayload, TokenType } from 'src/types';
+import authConfigType from 'src/config/auth.config';
 
 describe('TokenService', () => {
 	let service: TokenService;
@@ -19,6 +20,7 @@ describe('TokenService', () => {
 		$transaction: jest.Mock;
 	};
 	let userService: { findByEmail: jest.Mock };
+	let authConfig: { JWT_ACCESS_EXPIRES_IN: string; JWT_REFRESH_EXPIRES_IN: string };
 
 	const mockUser: User = {
 		id: '1',
@@ -52,12 +54,18 @@ describe('TokenService', () => {
 			findByEmail: jest.fn(),
 		};
 
+		authConfig = {
+			JWT_ACCESS_EXPIRES_IN: '15m',
+			JWT_REFRESH_EXPIRES_IN: '7d',
+		};
+
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
 				TokenService,
 				{ provide: JwtService, useValue: jwtService },
 				{ provide: PrismaService, useValue: prismaService },
 				{ provide: UserService, useValue: userService },
+				{ provide: authConfigType.KEY, useValue: authConfig },
 			],
 		}).compile();
 
@@ -83,7 +91,7 @@ describe('TokenService', () => {
 					sub: mockUser.id,
 					email: mockUser.email,
 					name: mockUser.name,
-					type: 'access',
+					type: TokenType.ACCESS,
 				},
 				{ expiresIn: '15m' },
 			);
@@ -102,7 +110,7 @@ describe('TokenService', () => {
 					sub: mockUser.id,
 					email: mockUser.email,
 					name: mockUser.name,
-					type: 'refresh',
+					type: TokenType.REFRESH,
 				},
 				{ expiresIn: '7d' },
 			);
@@ -132,7 +140,7 @@ describe('TokenService', () => {
 			sub: mockUser.id,
 			email: mockUser.email,
 			name: mockUser.name,
-			type: 'refresh',
+			type: TokenType.REFRESH,
 		};
 
 		it('유효한 리프레시 토큰으로 새로운 토큰 쌍을 생성한다', async () => {
@@ -161,7 +169,7 @@ describe('TokenService', () => {
 		});
 
 		it('잘못된 토큰 타입인 경우 UnauthorizedException을 던진다', async () => {
-			jwtService.verify.mockReturnValue({ ...mockJwtPayload, type: 'access' });
+			jwtService.verify.mockReturnValue({ ...mockJwtPayload, type: TokenType.ACCESS });
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');

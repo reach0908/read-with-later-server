@@ -1,2 +1,2 @@
 export * from './auth.interface';
-import './express';
+import './express.d.ts';

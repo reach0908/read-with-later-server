@@ -10,7 +10,7 @@ export class AuthService {
 	async validateUser(email: User['email']) {
 		const user = await this.userService.findByEmail(email);
 		if (!user) {
-			throw new NotFoundException('Can not found user');
+			throw new NotFoundException('Invalid credentials');
 		}
 		return user;
 	}
