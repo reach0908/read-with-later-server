@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-google-oauth20';
 import { ConfigType } from '@nestjs/config';
@@ -8,6 +8,7 @@ import authConfigType from 'src/config/auth.config';
 import { PROVIDER } from 'src/modules/auth/constants/strategy.constant';
 import { OAuthService } from 'src/modules/auth/services/oauth.service';
 import { GoogleProfile } from 'src/types';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, PROVIDER.GOOGLE) {
@@ -24,8 +25,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, PROVIDER.GOOGLE) 
 		});
 	}
 
-	async validate(accessToken: string, refreshToken: string, profile: GoogleProfile) {
+	async validate(accessToken: string, refreshToken: string, profile: GoogleProfile): Promise<User> {
 		const user = await this.oauthService.handleGoogleLogin(profile);
+		if (!user) {
+			throw new UnauthorizedException('Google login failed');
+		}
 		return user;
 	}
 }

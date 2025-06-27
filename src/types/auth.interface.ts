@@ -1,3 +1,6 @@
+import { User } from '@prisma/client';
+import { Request } from 'express';
+
 export interface JwtPayload {
 	sub: string;
 	email: string;
@@ -24,4 +27,12 @@ export interface GoogleProfile {
 export enum TokenType {
 	ACCESS = 'access',
 	REFRESH = 'refresh',
+}
+
+export interface AuthRequest extends Request {
+	user?: User;
+	cookies: {
+		access_token?: string;
+		refresh_token?: string;
+	};
 }
