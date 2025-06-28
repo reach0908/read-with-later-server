@@ -23,7 +23,9 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
+  refreshTokens   RefreshToken[]
+  scrapedPages    ScrapedPage[]
+  scrapeHistories ScrapeHistory[]
 
   @@unique([provider, providerId])
 }
@@ -41,4 +43,41 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+}
+
+// --- 웹 스크래핑 영역 추가 ---
+
+enum ScrapeStatus {
+  SUCCESS
+  FAILED
+}
+
+model ScrapedPage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  url String @db.Text // 정규화된 URL
+
+  title   String?
+  content String       @db.Text
+  status  ScrapeStatus @default(SUCCESS)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  scrapedAt DateTime @default(now())
+
+  @@unique([userId, url])
+}
+
+model ScrapeHistory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  url       String       @db.Text
+  status    ScrapeStatus
+  errorMsg  String?
+  duration  Int?
+  createdAt DateTime     @default(now())
 }

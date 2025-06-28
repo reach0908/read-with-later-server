@@ -20,6 +20,7 @@ export class JwtAuthGuard implements CanActivate {
 
 		// Authorization 헤더에서 Bearer 토큰 추출
 		const authHeader = request.headers['authorization'];
+
 		if (!authHeader || !authHeader.startsWith('Bearer ')) {
 			throw new UnauthorizedException('No access token provided');
 		}

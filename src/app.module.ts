@@ -8,6 +8,8 @@ import databaseConfig from 'src/config/database.config';
 import authConfig from 'src/config/auth.config';
 import appConfig from 'src/config/app.config';
 import { AuthModule } from 'src/modules/auth/auth.module';
+import { ScrapeModule } from 'src/modules/scrape/scrape.module';
+import { CrawlerModule } from 'src/modules/crawler/crawler.module';
 
 @Module({
 	imports: [
@@ -18,6 +20,8 @@ import { AuthModule } from 'src/modules/auth/auth.module';
 		}),
 		DatabaseModule,
 		AuthModule,
+		CrawlerModule,
+		ScrapeModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
