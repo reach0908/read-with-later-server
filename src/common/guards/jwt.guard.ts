@@ -1,13 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Request } from 'express';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { TokenService } from 'src/modules/auth/services/token.service';
 import { JwtPayload, TokenType } from 'src/types';
-
-interface AuthenticatedRequest extends Request {
-	user?: any;
-}
+import { Request } from 'express';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -18,7 +14,7 @@ export class JwtAuthGuard implements CanActivate {
 	) {}
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
-		const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+		const request = context.switchToHttp().getRequest<Request>();
 
 		// Authorization 헤더에서 Access Token 추출
 		const authHeader = request.headers['authorization'];
@@ -44,6 +40,9 @@ export class JwtAuthGuard implements CanActivate {
 
 			// 사용자 정보를 request에 추가
 			const user = await this.authService.validateUser(payload.email);
+			if (!user) {
+				throw new UnauthorizedException('Invalid access token');
+			}
 			request.user = user;
 
 			return true;

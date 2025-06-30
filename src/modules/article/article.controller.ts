@@ -11,10 +11,12 @@ import {
 	HttpStatus,
 	ParseIntPipe,
 	DefaultValuePipe,
+	UnauthorizedException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { ArticleService } from './article.service';
 import { CreateArticleDto } from './dto/create-article.dto';
+import { AuthRequest } from 'src/types';
 
 @Controller('articles')
 @UseGuards(JwtAuthGuard)
@@ -25,7 +27,7 @@ export class ArticleController {
 	 * 새 Article 생성 (URL 스크래핑)
 	 */
 	@Post()
-	async createArticle(@Body() createArticleDto: CreateArticleDto, @Request() req: any) {
+	async createArticle(@Body() createArticleDto: CreateArticleDto, @Request() req: AuthRequest) {
 		const article = await this.articleService.createArticle(createArticleDto, req.user.id);
 		return {
 			status: HttpStatus.CREATED,
@@ -39,15 +41,19 @@ export class ArticleController {
 	 */
 	@Get()
 	async getUserArticles(
-		@Request() req: any,
+		@Request() req: AuthRequest,
 		@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
 		@Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
 	) {
 		// limit 범위 제한 (1-100)
 		const safeLimit = Math.min(Math.max(limit, 1), 100);
 
-		const result = await this.articleService.getUserArticles(req.user.id, page, safeLimit);
+		if (!req.user) {
+			throw new UnauthorizedException('로그인이 필요합니다');
+		}
 
+		const result = await this.articleService.getUserArticles(req.user.id, page, safeLimit);
+		console.log(result);
 		return {
 			status: HttpStatus.OK,
 			data: result,
@@ -58,7 +64,7 @@ export class ArticleController {
 	 * Article 상세 조회
 	 */
 	@Get(':id')
-	async getArticle(@Param('id') id: string, @Request() req: any) {
+	async getArticle(@Param('id') id: string, @Request() req: AuthRequest) {
 		const article = await this.articleService.getArticleById(id, req.user.id);
 		return {
 			status: HttpStatus.OK,
@@ -70,7 +76,7 @@ export class ArticleController {
 	 * Article 삭제
 	 */
 	@Delete(':id')
-	async deleteArticle(@Param('id') id: string, @Request() req: any) {
+	async deleteArticle(@Param('id') id: string, @Request() req: AuthRequest) {
 		const result = await this.articleService.deleteArticle(id, req.user.id);
 		return {
 			status: HttpStatus.OK,
@@ -82,7 +88,7 @@ export class ArticleController {
 	 * 실패한 스크래핑 재시도
 	 */
 	@Post(':id/retry')
-	async retryArticle(@Param('id') id: string, @Request() req: any) {
+	async retryArticle(@Param('id') id: string, @Request() req: AuthRequest) {
 		const result = await this.articleService.retryFailedScraping(id, req.user.id);
 		return {
 			status: HttpStatus.OK,
@@ -94,7 +100,7 @@ export class ArticleController {
 	 * 사용자의 Article 통계
 	 */
 	@Get('stats/summary')
-	async getArticleStats(@Request() req: any) {
+	async getArticleStats(@Request() req: AuthRequest) {
 		const stats = await this.articleService.getArticleStats(req.user.id);
 		return {
 			status: HttpStatus.OK,

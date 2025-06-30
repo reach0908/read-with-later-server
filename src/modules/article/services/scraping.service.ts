@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as playwright from 'playwright';
+import { chromium } from 'playwright-extra';
 import type { Browser, Page } from 'playwright';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import { ConfigService } from '@nestjs/config';
+import StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 export interface ScrapedContent {
 	title: string;
@@ -27,7 +28,9 @@ interface PageMetadata {
 export class ScrapingService {
 	private readonly logger = new Logger(ScrapingService.name);
 
-	constructor(private configService: ConfigService) {}
+	constructor(private configService: ConfigService) {
+		chromium.use(StealthPlugin());
+	}
 
 	// 현재: 동기 처리, 나중에 큐로 쉽게 전환 가능하도록 설계
 	async scrapeUrl(url: string): Promise<ScrapedContent> {
@@ -51,9 +54,13 @@ export class ScrapingService {
 			await this.setupPage(page);
 
 			await page.goto(url, {
-				waitUntil: 'networkidle',
-				timeout: this.configService.get('PUPPETEER_TIMEOUT', 30000),
+				waitUntil: 'domcontentloaded',
+				timeout: this.configService.get('PUPPETEER_TIMEOUT', 60000),
 			});
+
+			if (url.includes('medium.com')) {
+				await page.waitForSelector('article', { timeout: 15000 });
+			}
 
 			const html: string = await page.content();
 			const metadata: PageMetadata = await this.extractMetadata(page);
@@ -66,7 +73,7 @@ export class ScrapingService {
 
 	private async launchBrowser(): Promise<Browser> {
 		const headless = this.configService.get('PUPPETEER_HEADLESS', 'true') === 'true';
-		return playwright.chromium.launch({
+		return chromium.launch({
 			headless,
 			args: [
 				'--no-sandbox',
@@ -81,14 +88,19 @@ export class ScrapingService {
 	private async setupPage(page: Page) {
 		const userAgent = this.configService.get<string>(
 			'SCRAPING_USER_AGENT',
-			'Mozilla/5.0 (compatible; ReadWithLater/1.0)',
+			'"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"',
 		);
-		await page.setExtraHTTPHeaders({ 'user-agent': userAgent });
+		await page.setExtraHTTPHeaders({
+			'user-agent': userAgent,
+			'accept-language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+			referer: 'https://www.google.com/',
+		});
 
-		// 불필요한 리소스 차단으로 성능 향상 (playwright는 route 사용)
+		await page.setViewportSize({ width: 1280, height: 800 });
+
 		await page.route('**/*', (route) => {
 			const resourceType = route.request().resourceType();
-			if (['stylesheet', 'font', 'image', 'media'].includes(resourceType)) {
+			if (['image', 'font', 'media'].includes(resourceType)) {
 				route.abort();
 			} else {
 				route.continue();
