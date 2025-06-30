@@ -61,54 +61,76 @@ export class CrawlerService {
 				headless: this.configService.HEADLESS,
 				maxRequestsPerCrawl: this.configService.MAX_REQUESTS_PER_CRAWL,
 				requestHandlerTimeoutSecs: this.configService.REQUEST_HANDLER_TIMEOUT_SECS,
-				// 성능 최적화 설정 추가
-				browserPoolOptions: {
-					useFingerprints: false, // 핑거프린팅 비활성화
-				},
 				launchContext: {
 					launchOptions: {
 						args: [
-							'--disable-images', // 이미지 비활성화
-							'--disable-javascript', // JavaScript 비활성화 (필요시)
-							'--disable-plugins',
-							'--disable-extensions',
+							'--disable-background-networking',
+							'--disable-background-timer-throttling',
+							'--disable-renderer-backgrounding',
+							'--disable-backgrounding-occluded-windows',
+							'--disable-features=TranslateUI',
+							'--disable-sync',
 							'--no-sandbox',
-							'--disable-setuid-sandbox',
 						],
 					},
 				},
 				requestHandler: async ({ page, request, pushData }) => {
 					this.logger.log(`크롤링 시작: ${request.url}`);
 
-					// Medium 최적화
+					// 불필요한 리소스 차단 (이미지, 폰트, 미디어, 광고, 트래킹)
+					await page.route('**/*', (route) => {
+						const resourceType = route.request().resourceType();
+						const url = route.request().url();
+
+						if (['image', 'font', 'media'].includes(resourceType)) {
+							route.abort();
+							return;
+						}
+						if (
+							url.includes('google-analytics') ||
+							url.includes('googletagmanager') ||
+							url.includes('facebook.net') ||
+							url.includes('doubleclick') ||
+							url.includes('ads') ||
+							url.includes('tracking')
+						) {
+							route.abort();
+							return;
+						}
+						// CSS, JS 등은 유지
+						route.continue();
+					});
+
+					await page.waitForLoadState('networkidle');
+
 					if (request.url.includes('medium.com')) {
-						// 불필요한 리소스 차단
-						await page.route('**/*.{png,jpg,jpeg,gif,svg,webp}', (route) => route.abort());
-						await page.route('**/*.{css,woff,woff2}', (route) => route.abort());
-
-						// 빠른 로딩을 위한 설정
-						await page.setViewportSize({ width: 1200, height: 800 });
-					}
-
-					await page.waitForLoadState('domcontentloaded'); // networkidle 대신 더 빠른 옵션
-
-					if (request.url.includes('medium.com')) {
-						await page.waitForTimeout(this.configService.MEDIUM_WAIT_TIME || 3000);
+						await page.waitForTimeout(3000);
 					}
 
 					const title = await page.title();
 					let content = '';
+
 					if (request.url.includes('medium.com')) {
 						const articleContent = await page.$('article');
 						if (articleContent) {
 							const articleHtml = await articleContent.innerHTML();
 							content = this.turndown.turndown(articleHtml);
 						} else {
-							const mainContent = await page.$('main, [role="main"], .post-content, .article-content');
-							if (mainContent) {
-								const mainHtml = await mainContent.innerHTML();
-								content = this.turndown.turndown(mainHtml);
-							} else {
+							const selectors = [
+								'[data-testid="storyContent"]',
+								'.story-content',
+								'main article',
+								'[role="main"]',
+							];
+							for (const selector of selectors) {
+								const element = await page.$(selector);
+								if (element) {
+									const html = await element.innerHTML();
+									content = this.turndown.turndown(html);
+									break;
+								}
+							}
+							if (!content) {
 								const bodyHtml = await page.$eval('body', (el) => el.innerHTML);
 								content = this.turndown.turndown(bodyHtml);
 							}
@@ -117,7 +139,9 @@ export class CrawlerService {
 						const rawHtml = await page.content();
 						content = this.turndown.turndown(rawHtml);
 					}
+
 					const rawHtml = await page.content();
+
 					await pushData({
 						title,
 						rawHtml,
