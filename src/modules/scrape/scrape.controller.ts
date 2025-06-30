@@ -13,6 +13,9 @@ export class ScrapeController {
 	async scrape(@Body() dto: ScrapeDto, @Req() req: AuthRequest) {
 		const userId = req.user!.id;
 
-		return this.scrapeService.scrapeAndSave(dto.url, userId, dto.tags);
+		return this.scrapeService.scrapeAndSave({
+			url: dto.url,
+			userId,
+		});
 	}
 }

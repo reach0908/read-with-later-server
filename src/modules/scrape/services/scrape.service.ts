@@ -3,6 +3,7 @@ import { PrismaService } from 'src/database/prisma.service';
 import { normalizeUrl } from 'src/common/utils/url-normalizer';
 import { ScrapeStatus, ScrapedPage } from '@prisma/client';
 import { CrawlerService } from 'src/modules/crawler/crawler.service';
+import { ScrapeDto } from '../dto/scrape.dto';
 
 @Injectable()
 export class ScrapeService {
@@ -13,9 +14,8 @@ export class ScrapeService {
 		private readonly crawler: CrawlerService,
 	) {}
 
-	async scrapeAndSave(originalUrl: string, userId: string, _tags?: string[]): Promise<ScrapedPage> {
-		void _tags;
-		const normalized = normalizeUrl(originalUrl);
+	async scrapeAndSave({ url, userId }: { url: ScrapeDto['url']; userId: string }): Promise<ScrapedPage> {
+		const normalized = normalizeUrl(url);
 		const start = Date.now();
 
 		try {
@@ -29,16 +29,16 @@ export class ScrapeService {
 			});
 
 			// Crawlee 를 이용하여 페이지 수집
-			const crawlResult = await this.crawler.scrapeToMarkdown(originalUrl);
+			const crawlResult = await this.crawler.scrapeToMarkdown(normalized);
 
+			// ScrapedPage 모델에는 rawHtml 필드가 없으므로 저장하지 않음
 			const data = {
 				url: normalized,
 				title: crawlResult.title,
 				content: crawlResult.content,
-				rawHtml: crawlResult.rawHtml,
 				scrapedAt: crawlResult.scrapedAt,
 				status: ScrapeStatus.SUCCESS,
-			} as const;
+			};
 
 			let page: ScrapedPage;
 			if (existing) {
@@ -66,20 +66,20 @@ export class ScrapeService {
 			});
 
 			return page;
-		} catch (error: unknown) {
+		} catch (err) {
 			// Record failed history
+			const errorMsg = err instanceof Error ? err.message : String(err);
 			await this.prisma.scrapeHistory.create({
 				data: {
 					user: { connect: { id: userId } },
-					url: normalizeUrl(originalUrl),
+					url: normalizeUrl(url),
 					status: ScrapeStatus.FAILED,
 					duration: Date.now() - start,
-					errorMsg: error instanceof Error ? error.message : String(error),
+					errorMsg,
 				},
 			});
 
-			const msg = error instanceof Error ? error.message : String(error);
-			this.logger.error(`스크래핑 실패: ${originalUrl} - ${msg}`);
+			this.logger.error(`스크래핑 실패: ${url} - ${errorMsg}`);
 			throw new InternalServerErrorException('스크래핑 중 오류가 발생했습니다.');
 		}
 	}

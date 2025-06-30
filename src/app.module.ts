@@ -7,6 +7,7 @@ import { DatabaseModule } from 'src/database/database.module';
 import databaseConfig from 'src/config/database.config';
 import authConfig from 'src/config/auth.config';
 import appConfig from 'src/config/app.config';
+import crawlerConfig from 'src/config/crawler.config';
 import { AuthModule } from 'src/modules/auth/auth.module';
 import { ScrapeModule } from 'src/modules/scrape/scrape.module';
 import { CrawlerModule } from 'src/modules/crawler/crawler.module';
@@ -16,7 +17,7 @@ import { CrawlerModule } from 'src/modules/crawler/crawler.module';
 		ConfigModule.forRoot({
 			isGlobal: true,
 			envFilePath: `.env.${process.env.NODE_ENV ?? 'local'}`,
-			load: [databaseConfig, authConfig, appConfig],
+			load: [databaseConfig, authConfig, appConfig, crawlerConfig],
 		}),
 		DatabaseModule,
 		AuthModule,
