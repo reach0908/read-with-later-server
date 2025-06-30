@@ -43,7 +43,7 @@ export class AuthController {
 
 			// 토큰 없이 클라이언트로 리다이렉트
 			const clientUrl = this.configService.get<string>('app.CLIENT_URL');
-			return res.redirect(`${clientUrl}/auth/callback`);
+			return res.redirect(`${clientUrl}/dashboard`);
 		} catch {
 			const clientUrl = this.configService.get<string>('app.CLIENT_URL');
 			return res.redirect(`${clientUrl}/auth/error?message=server_error`);
@@ -97,5 +97,11 @@ export class AuthController {
 			clearAllTokenCookies(res);
 			return res.json({ message: 'Logged out successfully' });
 		}
+	}
+
+	@Get('me')
+	@UseGuards(JwtAuthGuard)
+	me(@Req() req: AuthRequest, @Res() res: Response) {
+		return res.json({ ...req.user });
 	}
 }

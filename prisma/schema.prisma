@@ -24,12 +24,13 @@ model User {
   updatedAt  DateTime @updatedAt
 
   refreshTokens RefreshToken[]
+  articles      Article[]
 
   @@unique([provider, providerId])
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   token     String   @unique
   userId    String
   isValid   Boolean  @default(true)
@@ -41,4 +42,36 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  url         String        
+  title       String
+  content     String        @db.Text
+  textContent String        @db.Text
+  byline      String?
+  excerpt     String?
+  siteName    String?
+  favicon     String?
+  imageUrl    String?
+  readingTime Int?          // 예상 독서 시간 (분)
+  status      ArticleStatus @default(PENDING)
+  userId      String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, url])   // 유저별로 URL 중복 방지
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ArticleStatus {
+  PENDING    // 스크래핑 대기
+  PROCESSING // 스크래핑 중
+  COMPLETED  // 완료
+  FAILED     // 실패
 }

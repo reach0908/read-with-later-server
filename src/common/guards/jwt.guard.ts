@@ -1,9 +1,9 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { TokenService } from 'src/modules/auth/services/token.service';
-import { JwtPayload } from 'src/types';
+import { JwtPayload, TokenType } from 'src/types';
 
 interface AuthenticatedRequest extends Request {
 	user?: any;
@@ -19,13 +19,17 @@ export class JwtAuthGuard implements CanActivate {
 
 	async canActivate(context: ExecutionContext): Promise<boolean> {
 		const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-		const response = context.switchToHttp().getResponse<Response>();
 
-		// Access Token을 쿠키에서 추출
-		const accessToken = request.cookies?.access_token as string;
-		const refreshToken = request.cookies?.refresh_token as string;
+		// Authorization 헤더에서 Access Token 추출
+		const authHeader = request.headers['authorization'];
+		const accessToken =
+			authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+				? authHeader.split(' ')[1]
+				: null;
 
-		// Access Token이 없으면 거부
+		// (선택) Refresh Token을 헤더에서 추출하려면 아래 코드 사용
+		// const refreshToken = request.headers['x-refresh-token'] as string | undefined;
+
 		if (!accessToken) {
 			throw new UnauthorizedException('No access token provided');
 		}
@@ -34,7 +38,7 @@ export class JwtAuthGuard implements CanActivate {
 			// Access Token 검증
 			const payload = this.jwtService.verify<JwtPayload>(accessToken);
 
-			if (payload.type !== 'access') {
+			if (payload.type !== TokenType.ACCESS) {
 				throw new UnauthorizedException('Invalid token type');
 			}
 
@@ -44,57 +48,20 @@ export class JwtAuthGuard implements CanActivate {
 
 			return true;
 		} catch {
-			// Access Token이 만료된 경우, Refresh Token으로 갱신 시도
-			if (refreshToken) {
-				try {
-					const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
-						await this.tokenService.refreshTokens(refreshToken);
-
-					// 새로운 토큰들을 쿠키에 설정
-					this.setAccessTokenCookie(response, newAccessToken);
-					this.setRefreshTokenCookie(response, newRefreshToken);
-
-					// 새로운 Access Token으로 사용자 정보 추출
-					const payload = this.jwtService.verify<JwtPayload>(newAccessToken);
-					const user = await this.authService.validateUser(payload.email);
-					request.user = user;
-
-					return true;
-				} catch {
-					// Refresh Token도 유효하지 않으면 쿠키 삭제
-					this.clearAuthCookies(response);
-					throw new UnauthorizedException('Invalid refresh token');
-				}
-			}
+			// (선택) Refresh Token 로직을 사용하려면 아래 코드 활성화
+			// if (refreshToken) {
+			// 	try {
+			// 		const { accessToken: newAccessToken } = await this.tokenService.refreshTokens(refreshToken);
+			// 		const payload = this.jwtService.verify<JwtPayload>(newAccessToken);
+			// 		const user = await this.authService.validateUser(payload.email);
+			// 		request.user = user;
+			// 		return true;
+			// 	} catch {
+			// 		throw new UnauthorizedException('Invalid refresh token');
+			// 	}
+			// }
 
 			throw new UnauthorizedException('Invalid access token');
 		}
-	}
-
-	private setAccessTokenCookie(res: Response, accessToken: string): void {
-		const isProduction = process.env.NODE_ENV === 'production';
-
-		res.cookie('access_token', accessToken, {
-			httpOnly: true,
-			secure: isProduction,
-			sameSite: 'lax',
-			maxAge: 15 * 60 * 1000, // 15분
-		});
-	}
-
-	private setRefreshTokenCookie(res: Response, refreshToken: string): void {
-		const isProduction = process.env.NODE_ENV === 'production';
-
-		res.cookie('refresh_token', refreshToken, {
-			httpOnly: true,
-			secure: isProduction,
-			sameSite: 'lax',
-			maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-		});
-	}
-
-	private clearAuthCookies(res: Response): void {
-		res.clearCookie('access_token');
-		res.clearCookie('refresh_token');
 	}
 }
