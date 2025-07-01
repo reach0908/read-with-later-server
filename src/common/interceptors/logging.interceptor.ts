@@ -1,24 +1,51 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor, Logger } from '@nestjs/common';
-import { Observable, catchError, throwError } from 'rxjs';
-import { Request } from 'express';
+import { Observable, catchError, throwError, tap } from 'rxjs';
+import { Request, Response } from 'express';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
 	private readonly logger = new Logger(LoggingInterceptor.name);
+	private readonly logFormat = '[%s] %s - %d - %dms';
 
 	intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
 		const req = context.switchToHttp().getRequest<Request>();
+		const res = context.switchToHttp().getResponse<Response>();
 		const { method, url } = req;
+		const startTime = process.hrtime.bigint();
+		const clientIp = this.getClientIp(req);
+
+		// 요청 시작 로그 (비동기)
+		setImmediate(() => {
+			this.logger.log(`${method} ${url} - ${clientIp}`);
+		});
 
 		return next.handle().pipe(
+			tap(() => {
+				setImmediate(() => {
+					const endTime = process.hrtime.bigint();
+					const responseTime = Number(endTime - startTime) / 1_000_000;
+					const statusCode = res.statusCode;
+					if (statusCode >= 400 || responseTime > 1000) {
+						this.logger.warn(this.logFormat, method, url, statusCode, responseTime);
+					} else {
+						this.logger.log(`${method} ${url} - ${statusCode}`);
+					}
+				});
+			}),
 			catchError((err: unknown) => {
+				const endTime = process.hrtime.bigint();
+				const responseTime = Number(endTime - startTime) / 1_000_000;
+				const statusCode = res.statusCode || 500;
+				this.logger.error(this.logFormat, method, url, statusCode, responseTime);
 				if (err instanceof Error) {
-					this.logger.error(`[${method}] ${url} - ${err.message}`, err.stack);
-				} else {
-					this.logger.error(`[${method}] ${url} - ${JSON.stringify(err)}`);
+					this.logger.error(`${method} ${url} - ${err.message}`);
 				}
 				return throwError(() => err);
 			}),
 		);
+	}
+
+	private getClientIp(req: Request): string {
+		return req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown';
 	}
 }
