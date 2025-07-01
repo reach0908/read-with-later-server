@@ -23,6 +23,7 @@ describe('OAuthService', () => {
 		emails: [{ value: 'test@test.com' }],
 		displayName: '테스트',
 		id: 'gid',
+		provider: 'google',
 	} as GoogleProfile;
 
 	beforeEach(async () => {
@@ -42,16 +43,14 @@ describe('OAuthService', () => {
 		jest.clearAllMocks();
 	});
 
-	it('should be defined', () => {
+	it('OAuthService 인스턴스가 정의되어야 한다', () => {
 		expect(service).toBeDefined();
 	});
 
 	describe('handleGoogleLogin', () => {
 		it('기존 유저가 있으면 해당 유저를 반환한다', async () => {
 			userService.getUserByEmail.mockResolvedValue(mockUser);
-
 			const result = await service.handleGoogleLogin(mockGoogleProfile);
-
 			expect(userService.getUserByEmail).toHaveBeenCalledWith('test@test.com');
 			expect(userService.createUser).not.toHaveBeenCalled();
 			expect(result).toEqual(mockUser);
@@ -62,8 +61,8 @@ describe('OAuthService', () => {
 				emails: [{ value: 'new@test.com' }],
 				displayName: '신규유저',
 				id: 'new-gid',
+				provider: 'google',
 			} as GoogleProfile;
-
 			const newUser: User = {
 				id: '2',
 				email: 'new@test.com',
@@ -73,12 +72,9 @@ describe('OAuthService', () => {
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			};
-
 			userService.getUserByEmail.mockResolvedValue(null);
 			userService.createUser.mockResolvedValue(newUser);
-
 			const result = await service.handleGoogleLogin(newUserProfile);
-
 			expect(userService.getUserByEmail).toHaveBeenCalledWith('new@test.com');
 			expect(userService.createUser).toHaveBeenCalledWith({
 				email: 'new@test.com',
@@ -89,41 +85,66 @@ describe('OAuthService', () => {
 			expect(result).toEqual(newUser);
 		});
 
-		it('Google 프로필에 이메일이 없으면 BadRequestException을 던진다', async () => {
-			const profileWithoutEmail = {} as GoogleProfile;
-
-			await expect(service.handleGoogleLogin(profileWithoutEmail)).rejects.toThrow(BadRequestException);
-			await expect(service.handleGoogleLogin(profileWithoutEmail)).rejects.toThrow(
-				'Google profile does not contain email',
-			);
-		});
-
-		it('Google 프로필의 emails 배열이 비어있으면 BadRequestException을 던진다', async () => {
+		it('Google 프로필에 emails가 없거나 비어있으면 BadRequestException을 던진다', async () => {
+			const profileWithoutEmail = { provider: 'google' } as GoogleProfile;
 			const profileWithEmptyEmails = {
 				emails: [],
 				displayName: '테스트',
 				id: 'gid',
-			} as unknown as GoogleProfile;
-
+				provider: 'google',
+			} as GoogleProfile;
+			await expect(service.handleGoogleLogin(profileWithoutEmail)).rejects.toThrow(BadRequestException);
 			await expect(service.handleGoogleLogin(profileWithEmptyEmails)).rejects.toThrow(BadRequestException);
+			await expect(service.handleGoogleLogin(profileWithoutEmail)).rejects.toThrow(
+				'Google profile does not contain email',
+			);
 			await expect(service.handleGoogleLogin(profileWithEmptyEmails)).rejects.toThrow(
 				'Google profile does not contain email',
 			);
 		});
 
-		it('UserService에서 에러 발생 시 예외를 전파한다', async () => {
-			const error = new Error('Database error');
-			userService.getUserByEmail.mockRejectedValue(error);
-
-			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('Database error');
+		it('Google 프로필의 emails[0].value가 없으면 BadRequestException을 던진다', async () => {
+			const profileWithNoValue = {
+				emails: [{}],
+				displayName: '테스트',
+				id: 'gid',
+				provider: 'google',
+			} as GoogleProfile;
+			await expect(service.handleGoogleLogin(profileWithNoValue)).rejects.toThrow(BadRequestException);
+			await expect(service.handleGoogleLogin(profileWithNoValue)).rejects.toThrow(
+				'Google profile does not contain email',
+			);
 		});
 
-		it('유저 생성 시 에러 발생하면 예외를 전파한다', async () => {
-			const error = new Error('Create user failed');
+		it('UserService에서 에러 발생 시 예외를 그대로 전파한다', async () => {
+			const error = new Error('DB 에러');
+			userService.getUserByEmail.mockRejectedValue(error);
+			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('DB 에러');
+		});
+
+		it('유저 생성 시 에러 발생하면 예외를 그대로 전파한다', async () => {
+			const error = new Error('유저 생성 실패');
 			userService.getUserByEmail.mockResolvedValue(null);
 			userService.createUser.mockRejectedValue(error);
+			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('유저 생성 실패');
+		});
 
-			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('Create user failed');
+		it('displayName이 없으면 name은 null로 저장된다', async () => {
+			const profile: GoogleProfile = {
+				emails: [{ value: 'no-name@test.com' }],
+				id: 'gid',
+				provider: 'google',
+			} as GoogleProfile;
+			userService.getUserByEmail.mockResolvedValue(null);
+			userService.createUser.mockResolvedValue({ ...mockUser, email: 'no-name@test.com', name: null });
+			const result = await service.handleGoogleLogin(profile);
+			expect(userService.createUser).toHaveBeenCalledWith({
+				email: 'no-name@test.com',
+				name: null,
+				provider: 'google',
+				providerId: 'gid',
+			});
+			expect(result.name).toBeNull();
 		});
 	});
 });

@@ -40,7 +40,7 @@ describe('UserService', () => {
 		jest.clearAllMocks();
 	});
 
-	it('should be defined', () => {
+	it('UserService 인스턴스가 정의되어야 한다', () => {
 		expect(service).toBeDefined();
 	});
 
@@ -48,9 +48,7 @@ describe('UserService', () => {
 		it('이메일로 유저를 성공적으로 찾는다', async () => {
 			const email = 'test@test.com';
 			userRepository.findUnique.mockResolvedValue(mockUser);
-
 			const result = await service.getUserByEmail(email);
-
 			expect(userRepository.findUnique).toHaveBeenCalledWith({ email });
 			expect(result).toEqual(mockUser);
 		});
@@ -58,19 +56,16 @@ describe('UserService', () => {
 		it('존재하지 않는 이메일의 경우 null을 반환한다', async () => {
 			const email = 'notfound@test.com';
 			userRepository.findUnique.mockResolvedValue(null);
-
 			const result = await service.getUserByEmail(email);
-
 			expect(userRepository.findUnique).toHaveBeenCalledWith({ email });
 			expect(result).toBeNull();
 		});
 
 		it('데이터베이스 에러 발생 시 예외를 전파한다', async () => {
 			const email = 'test@test.com';
-			const error = new Error('Database connection error');
+			const error = new Error('DB 연결 에러');
 			userRepository.findUnique.mockRejectedValue(error);
-
-			await expect(service.getUserByEmail(email)).rejects.toThrow('Database connection error');
+			await expect(service.getUserByEmail(email)).rejects.toThrow('DB 연결 에러');
 		});
 	});
 
@@ -82,18 +77,14 @@ describe('UserService', () => {
 				provider: 'google',
 				providerId: 'google-456',
 			};
-
 			const createdUser: User = {
 				...createUserInput,
 				id: '2',
 				createdAt: new Date('2024-01-02'),
 				updatedAt: new Date('2024-01-02'),
 			};
-
 			userRepository.create.mockResolvedValue(createdUser);
-
 			const result = await service.createUser(createUserInput);
-
 			expect(userRepository.create).toHaveBeenCalledWith(createUserInput);
 			expect(result).toEqual(createdUser);
 		});
@@ -105,18 +96,14 @@ describe('UserService', () => {
 				provider: 'github',
 				providerId: 'github-789',
 			};
-
 			const createdUser: User = {
 				...createUserInput,
 				id: '3',
 				createdAt: new Date('2024-01-03'),
 				updatedAt: new Date('2024-01-03'),
 			};
-
 			userRepository.create.mockResolvedValue(createdUser);
-
 			const result = await service.createUser(createUserInput);
-
 			expect(userRepository.create).toHaveBeenCalledWith(createUserInput);
 			expect(result).toEqual(createdUser);
 		});
@@ -128,11 +115,9 @@ describe('UserService', () => {
 				provider: 'google',
 				providerId: 'google-error',
 			};
-
-			const error = new Error('Unique constraint violation');
+			const error = new Error('DB 에러');
 			userRepository.create.mockRejectedValue(error);
-
-			await expect(service.createUser(createUserInput)).rejects.toThrow('Unique constraint violation');
+			await expect(service.createUser(createUserInput)).rejects.toThrow('DB 에러');
 		});
 
 		it('중복 이메일로 유저 생성 시 Prisma 에러를 전파한다', async () => {
@@ -142,15 +127,12 @@ describe('UserService', () => {
 				provider: 'google',
 				providerId: 'google-duplicate',
 			};
-
 			const prismaError = {
 				code: 'P2002',
 				message: 'Unique constraint failed on the fields: (`email`)',
 				meta: { target: ['email'] },
 			};
-
 			userRepository.create.mockRejectedValue(prismaError);
-
 			await expect(service.createUser(createUserInput)).rejects.toEqual(prismaError);
 		});
 	});
@@ -172,7 +154,6 @@ describe('UserService', () => {
 			const userId = '1';
 			const updateUserInput = {};
 			await expect(service.updateUser(userId, updateUserInput)).rejects.toThrow('No fields to update');
-			// findUnique, update는 호출되지 않아야 함
 			expect(userRepository.findUnique).not.toHaveBeenCalled();
 			expect(userRepository.update).not.toHaveBeenCalled();
 		});

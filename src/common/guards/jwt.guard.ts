@@ -35,10 +35,16 @@ export class JwtAuthGuard implements CanActivate {
 
 			// 사용자 정보를 request에 추가
 			const user = await this.authService.validateUser(payload.email);
+			if (!user) {
+				throw new UnauthorizedException('Invalid access token');
+			}
 			request.user = user;
 
 			return true;
-		} catch {
+		} catch (err) {
+			if (err instanceof UnauthorizedException) {
+				throw err;
+			}
 			throw new UnauthorizedException('Invalid access token');
 		}
 	}

@@ -67,6 +67,12 @@ describe('UserController', () => {
 			expect(userService.getUserById).toHaveBeenCalledWith('not-exist');
 			expect(result).toBeNull();
 		});
+
+		it('userService.getUserById에서 에러가 발생하면 예외를 그대로 전파한다', async () => {
+			userService.getUserById.mockRejectedValue(new Error('DB 에러'));
+			const req = { user: { id: 'err' } } as any;
+			await expect(controller.getUser(req)).rejects.toThrow('DB 에러');
+		});
 	});
 
 	describe('updateUser', () => {
@@ -92,6 +98,12 @@ describe('UserController', () => {
 			const req = { user: { id: 'not-exist' } } as any;
 			await expect(controller.updateUser(req, { name: '이름' })).rejects.toThrow(NotFoundException);
 			expect(userService.updateUser).toHaveBeenCalledWith('not-exist', { name: '이름' });
+		});
+
+		it('userService.updateUser에서 에러가 발생하면 예외를 그대로 전파한다', async () => {
+			userService.updateUser.mockRejectedValue(new Error('DB 에러'));
+			const req = { user: { id: 'err' } } as any;
+			await expect(controller.updateUser(req, { name: '이름' })).rejects.toThrow('DB 에러');
 		});
 	});
 });

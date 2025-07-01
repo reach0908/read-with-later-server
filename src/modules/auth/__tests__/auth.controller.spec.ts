@@ -101,6 +101,17 @@ describe('AuthController', () => {
 				'http://localhost:3000/auth/error?message=authentication_failed',
 			);
 		});
+
+		it('토큰 생성 중 에러가 발생하면 서버 에러 페이지로 리다이렉트되어야 한다', async () => {
+			const mockReq = { user: mockUser } as unknown as AuthRequest;
+			const mockRes = { redirect: jest.fn(), cookie: jest.fn() } as unknown as Response;
+			configService.get.mockReturnValue('http://localhost:3000');
+			tokenService.generateTokenPair.mockRejectedValue(new Error('DB 에러'));
+
+			await controller.googleCallback(mockReq, mockRes);
+
+			expect(mockRes.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/error?message=server_error');
+		});
 	});
 
 	describe('refreshTokens', () => {
@@ -141,6 +152,24 @@ describe('AuthController', () => {
 			expect(mockRes.status).toHaveBeenCalledWith(401);
 			expect(mockRes.json).toHaveBeenCalledWith({ message: 'Refresh token not found' });
 		});
+
+		it('토큰 갱신 중 에러가 발생하면 모든 쿠키를 삭제하고 401을 반환해야 한다', async () => {
+			const mockReq = { cookies: { refresh_token: 'refresh-token' } } as unknown as AuthRequest;
+			const mockRes = {
+				status: jest.fn().mockReturnThis(),
+				json: jest.fn(),
+				cookie: jest.fn(),
+				clearCookie: jest.fn(),
+			} as unknown as Response;
+			tokenService.refreshTokens.mockRejectedValue(new Error('만료됨'));
+
+			await controller.refreshTokens(mockReq, mockRes);
+
+			expect(mockRes.status).toHaveBeenCalledWith(401);
+			expect(mockRes.json).toHaveBeenCalledWith({ message: 'Invalid refresh token' });
+			expect(mockRes.clearCookie).toHaveBeenCalledWith('access_token');
+			expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token');
+		});
 	});
 
 	describe('logout', () => {
@@ -159,6 +188,22 @@ describe('AuthController', () => {
 			await controller.logout(mockReq, mockRes);
 
 			expect(tokenService.logout).toHaveBeenCalledWith(mockUser.id);
+			expect(mockRes.json).toHaveBeenCalledWith({ message: 'Logged out successfully' });
+		});
+
+		it('로그아웃 중 에러가 발생해도 쿠키는 삭제되고 성공 메시지를 반환해야 한다', async () => {
+			const mockReq = { user: mockUser } as unknown as AuthRequest;
+			const mockRes = {
+				json: jest.fn(() => mockRes),
+				cookie: jest.fn(),
+				clearCookie: jest.fn(),
+			} as unknown as Response;
+			tokenService.logout.mockRejectedValue(new Error('DB 에러'));
+
+			await controller.logout(mockReq, mockRes);
+
+			expect(mockRes.clearCookie).toHaveBeenCalledWith('access_token');
+			expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token');
 			expect(mockRes.json).toHaveBeenCalledWith({ message: 'Logged out successfully' });
 		});
 	});

@@ -34,32 +34,34 @@ describe('AuthService', () => {
 		jest.clearAllMocks();
 	});
 
-	it('should be defined', () => {
+	it('AuthService 인스턴스가 정의되어야 한다', () => {
 		expect(service).toBeDefined();
 	});
 
 	describe('validateUser', () => {
 		it('유효한 이메일로 유저를 반환한다', async () => {
 			userService.getUserByEmail.mockResolvedValue(mockUser);
-
 			const result = await service.validateUser(mockUser.email);
-
 			expect(userService.getUserByEmail).toHaveBeenCalledWith(mockUser.email);
 			expect(result).toEqual(mockUser);
 		});
 
 		it('존재하지 않는 유저의 경우 NotFoundException을 던진다', async () => {
 			userService.getUserByEmail.mockResolvedValue(null);
-
 			await expect(service.validateUser('none@test.com')).rejects.toThrow(NotFoundException);
 			await expect(service.validateUser('none@test.com')).rejects.toThrow('Invalid credentials');
 		});
 
-		it('UserService에서 에러 발생 시 예외를 전파한다', async () => {
-			const error = new Error('Database error');
+		it('UserService에서 에러 발생 시 예외를 그대로 전파한다', async () => {
+			const error = new Error('DB 연결 에러');
 			userService.getUserByEmail.mockRejectedValue(error);
+			await expect(service.validateUser('test@test.com')).rejects.toThrow('DB 연결 에러');
+		});
 
-			await expect(service.validateUser('test@test.com')).rejects.toThrow('Database error');
+		it('이메일이 undefined/null이면 NotFoundException을 던진다', async () => {
+			userService.getUserByEmail.mockResolvedValue(null);
+			await expect(service.validateUser(undefined as any)).rejects.toThrow(NotFoundException);
+			await expect(service.validateUser(null as any)).rejects.toThrow(NotFoundException);
 		});
 	});
 });

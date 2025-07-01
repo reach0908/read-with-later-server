@@ -74,7 +74,7 @@ describe('TokenService', () => {
 		jest.clearAllMocks();
 	});
 
-	it('should be defined', () => {
+	it('TokenService 인스턴스가 정의되어야 한다', () => {
 		expect(service).toBeDefined();
 	});
 
@@ -203,6 +203,11 @@ describe('TokenService', () => {
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');
+		});
+
+		it('refreshToken이 undefined/null이면 UnauthorizedException을 던진다', async () => {
+			await expect(service.refreshTokens(undefined as any)).rejects.toThrow(UnauthorizedException);
+			await expect(service.refreshTokens(null as any)).rejects.toThrow(UnauthorizedException);
 		});
 	});
 
