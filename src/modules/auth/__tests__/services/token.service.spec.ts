@@ -2,22 +2,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TokenService } from 'src/modules/auth/services/token.service';
-import { PrismaService } from 'src/database/prisma.service';
 import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
 import { JwtPayload, TokenType } from 'src/types';
 import authConfigType from 'src/config/auth.config';
+import { RefreshTokenRepository } from 'src/modules/auth/repositories/refresh-token.repository';
 
 describe('TokenService', () => {
 	let service: TokenService;
 	let jwtService: { sign: jest.Mock; verify: jest.Mock };
-	let prismaService: {
-		refreshToken: {
-			findFirst: jest.Mock;
-			deleteMany: jest.Mock;
-			create: jest.Mock;
-		};
-		$transaction: jest.Mock;
+	let refreshTokenRepository: {
+		findFirst: jest.Mock;
+		deleteMany: jest.Mock;
+		create: jest.Mock;
+		prisma: { $transaction: jest.Mock };
 	};
 	let userService: { getUserByEmail: jest.Mock };
 	let authConfig: { JWT_ACCESS_EXPIRES_IN: string; JWT_REFRESH_EXPIRES_IN: string };
@@ -41,13 +39,13 @@ describe('TokenService', () => {
 			verify: jest.fn(),
 		};
 
-		prismaService = {
-			refreshToken: {
-				findFirst: jest.fn(),
-				deleteMany: jest.fn(),
-				create: jest.fn(),
+		refreshTokenRepository = {
+			findFirst: jest.fn(),
+			deleteMany: jest.fn(),
+			create: jest.fn(),
+			prisma: {
+				$transaction: jest.fn((callback: (tx: any) => unknown) => callback(refreshTokenRepository)),
 			},
-			$transaction: jest.fn((callback: (tx: typeof prismaService) => unknown) => callback(prismaService)),
 		};
 
 		userService = {
@@ -63,9 +61,9 @@ describe('TokenService', () => {
 			providers: [
 				TokenService,
 				{ provide: JwtService, useValue: jwtService },
-				{ provide: PrismaService, useValue: prismaService },
 				{ provide: UserService, useValue: userService },
 				{ provide: authConfigType.KEY, useValue: authConfig },
+				{ provide: RefreshTokenRepository, useValue: refreshTokenRepository },
 			],
 		}).compile();
 
@@ -121,13 +119,16 @@ describe('TokenService', () => {
 	describe('generateTokenPair', () => {
 		it('액세스 토큰과 리프레시 토큰 쌍을 생성하고 저장한다', async () => {
 			jwtService.sign.mockReturnValueOnce(mockAccessToken).mockReturnValueOnce(mockRefreshToken);
-			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
-			prismaService.refreshToken.create.mockResolvedValue(undefined);
+			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
+				await cb(refreshTokenRepository);
+			});
+			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
+			refreshTokenRepository.create.mockResolvedValue(undefined);
 
 			const result = await service.generateTokenPair(mockUser);
 
 			expect(jwtService.sign).toHaveBeenCalledTimes(2);
-			expect(prismaService.$transaction).toHaveBeenCalled();
+			expect(refreshTokenRepository.prisma.$transaction).toHaveBeenCalled();
 			expect(result).toEqual({
 				accessToken: mockAccessToken,
 				refreshToken: mockRefreshToken,
@@ -145,16 +146,19 @@ describe('TokenService', () => {
 
 		it('유효한 리프레시 토큰으로 새로운 토큰 쌍을 생성한다', async () => {
 			jwtService.verify.mockReturnValue(mockJwtPayload);
-			prismaService.refreshToken.findFirst.mockResolvedValue({ id: '1' });
+			refreshTokenRepository.findFirst.mockResolvedValue({ id: '1' });
 			userService.getUserByEmail.mockResolvedValue(mockUser);
 			jwtService.sign.mockReturnValueOnce('new-access-token').mockReturnValueOnce('new-refresh-token');
-			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
-			prismaService.refreshToken.create.mockResolvedValue(undefined);
+			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
+				await cb(refreshTokenRepository);
+			});
+			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
+			refreshTokenRepository.create.mockResolvedValue(undefined);
 
 			const result = await service.refreshTokens(mockRefreshToken);
 
 			expect(jwtService.verify).toHaveBeenCalledWith(mockRefreshToken);
-			expect(prismaService.refreshToken.findFirst).toHaveBeenCalledWith({
+			expect(refreshTokenRepository.findFirst).toHaveBeenCalledWith({
 				where: {
 					userId: mockUser.id,
 					token: mockRefreshToken,
@@ -177,7 +181,7 @@ describe('TokenService', () => {
 
 		it('저장된 리프레시 토큰이 없는 경우 UnauthorizedException을 던진다', async () => {
 			jwtService.verify.mockReturnValue(mockJwtPayload);
-			prismaService.refreshToken.findFirst.mockResolvedValue(null);
+			refreshTokenRepository.findFirst.mockResolvedValue(null);
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');
@@ -185,7 +189,7 @@ describe('TokenService', () => {
 
 		it('유저가 존재하지 않는 경우 UnauthorizedException을 던진다', async () => {
 			jwtService.verify.mockReturnValue(mockJwtPayload);
-			prismaService.refreshToken.findFirst.mockResolvedValue({ id: '1' });
+			refreshTokenRepository.findFirst.mockResolvedValue({ id: '1' });
 			userService.getUserByEmail.mockResolvedValue(null);
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
@@ -204,47 +208,48 @@ describe('TokenService', () => {
 
 	describe('saveRefreshToken', () => {
 		it('리프레시 토큰을 데이터베이스에 저장한다', async () => {
-			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
-			prismaService.refreshToken.create.mockResolvedValue(undefined);
+			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
+				await cb(refreshTokenRepository);
+			});
+			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
+			refreshTokenRepository.create.mockResolvedValue(undefined);
 
 			await service.saveRefreshToken(mockUser.id, mockRefreshToken);
 
-			expect(prismaService.$transaction).toHaveBeenCalled();
-			expect(prismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
-				where: { userId: mockUser.id },
-			});
-			expect(prismaService.refreshToken.create).toHaveBeenCalledWith({
-				data: {
+			expect(refreshTokenRepository.prisma.$transaction).toHaveBeenCalled();
+			expect(refreshTokenRepository.deleteMany).toHaveBeenCalledWith(
+				{ where: { userId: mockUser.id } },
+				refreshTokenRepository,
+			);
+			expect(refreshTokenRepository.create).toHaveBeenCalledWith(
+				{
 					token: mockRefreshToken,
-					userId: mockUser.id,
 					isValid: true,
 					expiresAt: expect.any(Date) as Date,
+					user: { connect: { id: mockUser.id } },
 				},
-			});
+				refreshTokenRepository,
+			);
 		});
 	});
 
 	describe('removeRefreshToken', () => {
 		it('특정 리프레시 토큰을 삭제한다', async () => {
-			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
+			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
 
 			await service.removeRefreshToken(mockRefreshToken);
 
-			expect(prismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
-				where: { token: mockRefreshToken },
-			});
+			expect(refreshTokenRepository.deleteMany).toHaveBeenCalledWith({ where: { token: mockRefreshToken } });
 		});
 	});
 
 	describe('logout', () => {
 		it('유저의 모든 리프레시 토큰을 삭제한다', async () => {
-			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
+			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
 
 			await service.logout(mockUser.id);
 
-			expect(prismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
-				where: { userId: mockUser.id },
-			});
+			expect(refreshTokenRepository.deleteMany).toHaveBeenCalledWith({ where: { userId: mockUser.id } });
 		});
 	});
 });
