@@ -97,7 +97,7 @@ export class TokenService {
 				throw new UnauthorizedException('Invalid refresh token');
 			}
 
-			const user = await this.userService.findByEmail(payload.email);
+			const user = await this.userService.getUserByEmail(payload.email);
 			if (!user) {
 				throw new UnauthorizedException('Invalid refresh token');
 			}

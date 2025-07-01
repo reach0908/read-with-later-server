@@ -20,6 +20,7 @@ import { DatabaseModule } from 'src/database/database.module';
 			load: [databaseConfig, authConfig, appConfig],
 		}),
 		DatabaseModule,
+		// Modules
 		AuthModule,
 		ScraperModule,
 		ContentsModule,

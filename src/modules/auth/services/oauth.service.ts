@@ -17,7 +17,7 @@ export class OAuthService {
 		const email = profile.emails[0].value;
 		const name = typeof profile.displayName === 'string' ? profile.displayName : null;
 
-		let user = await this.userService.findByEmail(email);
+		let user = await this.userService.getUserByEmail(email);
 
 		if (!user) {
 			user = await this.userService.createUser({
