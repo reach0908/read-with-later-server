@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 
-import { AppController } from 'src/app.controller';
-import { AppService } from 'src/app.service';
-import { DatabaseModule } from 'src/database/database.module';
+// Configs
 import databaseConfig from 'src/config/database.config';
 import authConfig from 'src/config/auth.config';
 import appConfig from 'src/config/app.config';
+
+// Modules
+import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from 'src/modules/auth/auth.module';
+import { ScraperModule } from 'src/modules/scraper/scraper.module';
+import { ContentsModule } from 'src/modules/contents/contents.module';
+import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
 	imports: [
@@ -18,8 +21,10 @@ import { AuthModule } from 'src/modules/auth/auth.module';
 		}),
 		DatabaseModule,
 		AuthModule,
+		ScraperModule,
+		ContentsModule,
 	],
-	controllers: [AppController],
-	providers: [AppService],
+	controllers: [],
+	providers: [],
 })
 export class AppModule {}
