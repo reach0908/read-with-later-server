@@ -8,8 +8,6 @@ import appConfig from 'src/config/app.config';
 // Modules
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from 'src/modules/auth/auth.module';
-import { ScraperModule } from 'src/modules/scraper/scraper.module';
-import { ContentsModule } from 'src/modules/contents/contents.module';
 import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
@@ -22,8 +20,6 @@ import { DatabaseModule } from 'src/database/database.module';
 		DatabaseModule,
 		// Modules
 		AuthModule,
-		ScraperModule,
-		ContentsModule,
 	],
 	controllers: [],
 	providers: [],
