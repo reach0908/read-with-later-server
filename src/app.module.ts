@@ -25,8 +25,8 @@ import { DatabaseModule } from 'src/database/database.module';
 			inject: [ConfigService],
 			useFactory: (configService: ConfigService) => [
 				{
-					ttl: configService.get<number>('throttler.ttl', 60),
-					limit: configService.get<number>('throttler.limit', 10),
+					ttl: configService.get<number>('throttler.TTL', 60),
+					limit: configService.get<number>('throttler.LIMIT', 10),
 				},
 			],
 		}),
