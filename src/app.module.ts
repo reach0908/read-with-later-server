@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 // Configs
 import databaseConfig from 'src/config/database.config';
@@ -17,11 +19,23 @@ import { DatabaseModule } from 'src/database/database.module';
 			envFilePath: `.env.${process.env.NODE_ENV ?? 'local'}`,
 			load: [databaseConfig, authConfig, appConfig],
 		}),
+		ThrottlerModule.forRoot([
+			{
+				ttl: 60000,
+				limit: 10,
+			},
+		]),
+		// Infra
 		DatabaseModule,
 		// Modules
 		AuthModule,
 	],
 	controllers: [],
-	providers: [],
+	providers: [
+		{
+			provide: APP_GUARD,
+			useClass: ThrottlerGuard,
+		},
+	],
 })
 export class AppModule {}
