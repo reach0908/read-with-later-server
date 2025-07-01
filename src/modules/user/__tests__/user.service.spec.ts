@@ -171,11 +171,30 @@ describe('UserService', () => {
 		it('빈 객체가 들어오면 BadRequestException을 던진다', async () => {
 			const userId = '1';
 			const updateUserInput = {};
-			userRepository.findUnique.mockResolvedValue(mockUser);
 			await expect(service.updateUser(userId, updateUserInput)).rejects.toThrow('No fields to update');
-			// findUnique 호출 전에 예외가 발생하므로 update는 호출되지 않아야 함
+			// findUnique, update는 호출되지 않아야 함
 			expect(userRepository.findUnique).not.toHaveBeenCalled();
 			expect(userRepository.update).not.toHaveBeenCalled();
+		});
+
+		it('모든 값이 undefined인 객체가 들어오면 BadRequestException을 던진다', async () => {
+			const userId = '1';
+			const updateUserInput = { name: undefined, email: undefined };
+			await expect(service.updateUser(userId, updateUserInput)).rejects.toThrow('No fields to update');
+			expect(userRepository.findUnique).not.toHaveBeenCalled();
+			expect(userRepository.update).not.toHaveBeenCalled();
+		});
+
+		it('일부 값만 undefined인 경우 정상적으로 업데이트된다', async () => {
+			const userId = '1';
+			const updateUserInput = { name: undefined, email: 'new@email.com' };
+			const updatedUser = { ...mockUser, email: 'new@email.com' };
+			userRepository.findUnique.mockResolvedValue(mockUser);
+			userRepository.update.mockResolvedValue(updatedUser);
+			const result = await service.updateUser(userId, updateUserInput);
+			expect(userRepository.findUnique).toHaveBeenCalledWith({ id: userId });
+			expect(userRepository.update).toHaveBeenCalledWith(userId, updateUserInput);
+			expect(result).toEqual(updatedUser);
 		});
 
 		it('존재하지 않는 유저 ID로 업데이트 시 NotFoundException을 던진다', async () => {

@@ -20,7 +20,7 @@ export class UserService {
 	}
 
 	async updateUser(id: string, updateUserInput: UpdateUserInput) {
-		if (Object.keys(updateUserInput).length === 0) {
+		if (Object.values(updateUserInput).every((value) => value === undefined)) {
 			throw new BadRequestException('No fields to update');
 		}
 
