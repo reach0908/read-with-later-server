@@ -30,7 +30,7 @@ export enum TokenType {
 }
 
 export interface AuthRequest extends Request {
-	user?: User;
+	user: User;
 	cookies: {
 		access_token?: string;
 		refresh_token?: string;

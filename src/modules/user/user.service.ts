@@ -1,20 +1,34 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/database/prisma.service';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserInput } from 'src/modules/user/dto/create-user.input';
+import { UpdateUserInput } from 'src/modules/user/dto/update-user.input';
+import { UserRepository } from 'src/modules/user/repositories/user.repository';
 
 @Injectable()
 export class UserService {
-	constructor(private readonly prisma: PrismaService) {}
+	constructor(private readonly userRepository: UserRepository) {}
 
-	async findByEmail(email: string) {
-		return this.prisma.user.findUnique({
-			where: { email },
-		});
+	async getUserByEmail(email: string) {
+		return this.userRepository.findUnique({ email });
+	}
+
+	async getUserById(id: string) {
+		return this.userRepository.findUnique({ id });
 	}
 
 	async createUser(createUserInput: CreateUserInput) {
-		return this.prisma.user.create({
-			data: createUserInput,
-		});
+		return this.userRepository.create(createUserInput);
+	}
+
+	async updateUser(id: string, updateUserInput: UpdateUserInput) {
+		if (Object.values(updateUserInput).every((value) => value === undefined)) {
+			throw new BadRequestException('No fields to update');
+		}
+
+		const user = await this.getUserById(id);
+
+		if (!user) {
+			throw new NotFoundException('User not found');
+		}
+		return this.userRepository.update(id, updateUserInput);
 	}
 }

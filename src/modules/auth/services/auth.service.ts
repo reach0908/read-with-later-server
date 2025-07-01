@@ -8,7 +8,7 @@ export class AuthService {
 	constructor(private readonly userService: UserService) {}
 
 	async validateUser(email: User['email']) {
-		const user = await this.userService.findByEmail(email);
+		const user = await this.userService.getUserByEmail(email);
 		if (!user) {
 			throw new NotFoundException('Invalid credentials');
 		}

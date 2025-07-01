@@ -3,10 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import { ConfigType } from '@nestjs/config';
 
-import { PrismaService } from 'src/database/prisma.service';
 import { UserService } from 'src/modules/user/user.service';
 
 import authConfigType from 'src/config/auth.config';
+import { RefreshTokenRepository } from 'src/modules/auth/repositories/refresh-token.repository';
 
 import { JwtPayload, TokenPair, TokenType } from 'src/types';
 
@@ -18,8 +18,8 @@ export class TokenService {
 		@Inject(authConfigType.KEY)
 		private readonly configService: ConfigType<typeof authConfigType>,
 		private readonly jwtService: JwtService,
-		private readonly prisma: PrismaService,
 		private readonly userService: UserService,
+		private readonly refreshTokenRepository: RefreshTokenRepository,
 	) {}
 
 	/**
@@ -85,7 +85,7 @@ export class TokenService {
 				throw new UnauthorizedException('Invalid refresh token');
 			}
 
-			const storedToken = await this.prisma.refreshToken.findFirst({
+			const storedToken = await this.refreshTokenRepository.findFirst({
 				where: {
 					userId: payload.sub,
 					token: refreshToken,
@@ -97,7 +97,7 @@ export class TokenService {
 				throw new UnauthorizedException('Invalid refresh token');
 			}
 
-			const user = await this.userService.findByEmail(payload.email);
+			const user = await this.userService.getUserByEmail(payload.email);
 			if (!user) {
 				throw new UnauthorizedException('Invalid refresh token');
 			}
@@ -112,27 +112,28 @@ export class TokenService {
 	}
 
 	async saveRefreshToken(userId: string, token: string): Promise<void> {
-		await this.prisma.$transaction(async (tx) => {
-			await tx.refreshToken.deleteMany({ where: { userId } });
-			await tx.refreshToken.create({
-				data: {
-					userId,
+		await this.refreshTokenRepository['prisma'].$transaction(async (tx) => {
+			await this.refreshTokenRepository.deleteMany({ where: { userId } }, tx);
+			await this.refreshTokenRepository.create(
+				{
 					token,
 					isValid: true,
 					expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+					user: { connect: { id: userId } },
 				},
-			});
+				tx,
+			);
 		});
 		this.logger.debug(`RefreshToken 저장: ${userId}`);
 	}
 
 	async removeRefreshToken(token: string): Promise<void> {
-		await this.prisma.refreshToken.deleteMany({ where: { token } });
+		await this.refreshTokenRepository.deleteMany({ where: { token } });
 		this.logger.debug(`RefreshToken 삭제: ${token}`);
 	}
 
 	async logout(userId: string): Promise<void> {
-		await this.prisma.refreshToken.deleteMany({ where: { userId } });
+		await this.refreshTokenRepository.deleteMany({ where: { userId } });
 		this.logger.debug(`모든 RefreshToken 삭제(로그아웃): ${userId}`);
 	}
 }
