@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
@@ -13,6 +14,8 @@ async function bootstrap() {
 
 	// Cookie parser 미들웨어 추가
 	app.use(cookieParser());
+
+	app.useGlobalInterceptors(new LoggingInterceptor());
 
 	await app.listen(process.env.PORT ?? 4000);
 }

@@ -10,6 +10,10 @@ export class UserService {
 		return this.userRepository.findUnique({ email });
 	}
 
+	async getUserById(id: string) {
+		return this.userRepository.findUnique({ id });
+	}
+
 	async createUser(createUserInput: CreateUserInput) {
 		return this.userRepository.create(createUserInput);
 	}
