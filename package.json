@@ -18,6 +18,10 @@
 		"test:cov": "jest --coverage",
 		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 		"test:e2e": "jest --config ./test/jest-e2e.json",
+		"test:unit": "jest --testPathPattern=src --testPathIgnorePatterns=e2e",
+		"test:integration": "jest --testPathPattern=test --testPathIgnorePatterns=unit",
+		"test:fast": "jest --maxWorkers=1",
+		"test:ci": "jest --ci --coverage --watchAll=false",
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "prisma migrate dev",
 		"prisma:migrate:local": "dotenv -e .env.local -- prisma migrate dev",
@@ -76,26 +80,7 @@
 		"ts-node": "^10.9.2",
 		"tsconfig-paths": "^4.2.0",
 		"typescript": "^5.7.3",
-		"typescript-eslint": "^8.20.0"
-	},
-	"jest": {
-		"moduleFileExtensions": [
-			"js",
-			"json",
-			"ts"
-		],
-		"rootDir": "src",
-		"testRegex": ".*\\.spec\\.ts$",
-		"transform": {
-			"^.+\\.(t|j)s$": "ts-jest"
-		},
-		"collectCoverageFrom": [
-			"**/*.(t|j)s"
-		],
-		"coverageDirectory": "../coverage",
-		"testEnvironment": "node",
-		"moduleNameMapper": {
-			"^src/(.*)$": "<rootDir>/$1"
-		}
+		"typescript-eslint": "^8.20.0",
+		"@faker-js/faker": "^9.8.0"
 	}
 }

@@ -3,25 +3,20 @@ import { NotFoundException } from '@nestjs/common';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
+import { UserFactory } from 'test/factories/user.factory';
 
 describe('AuthService', () => {
 	let service: AuthService;
 	let userService: { getUserByEmail: jest.Mock };
 
-	const mockUser: User = {
-		id: '1',
-		email: 'test@test.com',
-		name: '테스트',
-		provider: 'google',
-		providerId: 'gid',
-		createdAt: new Date(),
-		updatedAt: new Date(),
-	};
+	let mockUser: User;
 
 	beforeEach(async () => {
 		userService = {
 			getUserByEmail: jest.fn(),
 		};
+
+		mockUser = UserFactory.create();
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [AuthService, { provide: UserService, useValue: userService }],

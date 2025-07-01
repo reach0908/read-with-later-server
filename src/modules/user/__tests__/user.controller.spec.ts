@@ -5,6 +5,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { UpdateUserInput } from '../dto/update-user.input';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { User } from '@prisma/client';
+import { UserFactory } from '../../../../test/factories/user.factory';
 
 // JwtAuthGuard를 완전히 무시하는 mock guard
 class MockJwtAuthGuard {
@@ -20,21 +21,15 @@ describe('UserController', () => {
 		updateUser: jest.Mock;
 	};
 
-	const mockUser: User = {
-		id: '1',
-		email: 'test@test.com',
-		name: '테스트 유저',
-		provider: 'google',
-		providerId: 'google-123',
-		createdAt: new Date('2024-01-01'),
-		updatedAt: new Date('2024-01-01'),
-	};
+	let mockUser: User;
 
 	beforeEach(async () => {
 		userService = {
 			getUserById: jest.fn(),
 			updateUser: jest.fn(),
 		};
+
+		mockUser = UserFactory.create();
 
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [UserController],

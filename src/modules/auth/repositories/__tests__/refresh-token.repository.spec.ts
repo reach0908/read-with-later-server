@@ -1,9 +1,12 @@
 import { RefreshTokenRepository } from '../refresh-token.repository';
 import { PrismaService } from 'src/database/prisma.service';
+import { UserFactory } from '../../../../../test/factories/user.factory';
 
 describe('RefreshTokenRepository', () => {
 	let repo: RefreshTokenRepository;
 	let prisma: PrismaService;
+
+	let mockUser: any;
 
 	beforeEach(() => {
 		prisma = {
@@ -14,6 +17,7 @@ describe('RefreshTokenRepository', () => {
 			},
 		} as any;
 		repo = new RefreshTokenRepository(prisma);
+		mockUser = UserFactory.create();
 	});
 
 	it('should be defined', () => {

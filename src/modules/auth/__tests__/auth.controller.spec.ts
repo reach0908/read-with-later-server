@@ -9,6 +9,7 @@ import { AuthService } from 'src/modules/auth/services/auth.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { AuthRequest } from 'src/types';
+import { UserFactory } from '../../../../test/factories/user.factory';
 
 describe('AuthController', () => {
 	let controller: AuthController;
@@ -17,15 +18,7 @@ describe('AuthController', () => {
 	let configService: { get: jest.Mock };
 	let jwtService: { sign: jest.Mock; verify: jest.Mock };
 
-	const mockUser: User = {
-		id: '1',
-		email: 'test@test.com',
-		name: '테스트',
-		provider: 'google',
-		providerId: 'gid',
-		createdAt: new Date(),
-		updatedAt: new Date(),
-	};
+	let mockUser: User;
 
 	beforeEach(async () => {
 		tokenService = {
@@ -46,6 +39,8 @@ describe('AuthController', () => {
 			sign: jest.fn(),
 			verify: jest.fn(),
 		};
+
+		mockUser = UserFactory.create();
 
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AuthController],

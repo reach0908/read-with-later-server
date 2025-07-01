@@ -3,6 +3,7 @@ import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
 import { UserRepository } from 'src/modules/user/repositories/user.repository';
 import { CreateUserInput } from 'src/modules/user/dto/create-user.input';
+import { UserFactory } from '../../../../test/factories/user.factory';
 
 describe('UserService', () => {
 	let service: UserService;
@@ -12,15 +13,7 @@ describe('UserService', () => {
 		update: jest.Mock;
 	};
 
-	const mockUser: User = {
-		id: '1',
-		email: 'test@test.com',
-		name: '테스트 유저',
-		provider: 'google',
-		providerId: 'google-123',
-		createdAt: new Date('2024-01-01'),
-		updatedAt: new Date('2024-01-01'),
-	};
+	let mockUser: User;
 
 	beforeEach(async () => {
 		userRepository = {
@@ -28,6 +21,8 @@ describe('UserService', () => {
 			create: jest.fn(),
 			update: jest.fn(),
 		};
+
+		mockUser = UserFactory.create();
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [UserService, { provide: UserRepository, useValue: userRepository }],

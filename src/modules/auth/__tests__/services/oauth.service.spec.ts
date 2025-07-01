@@ -4,20 +4,13 @@ import { OAuthService } from 'src/modules/auth/services/oauth.service';
 import { UserService } from 'src/modules/user/user.service';
 import { User } from '@prisma/client';
 import { GoogleProfile } from 'src/types';
+import { UserFactory } from 'test/factories/user.factory';
 
 describe('OAuthService', () => {
 	let service: OAuthService;
 	let userService: { getUserByEmail: jest.Mock; createUser: jest.Mock };
 
-	const mockUser: User = {
-		id: '1',
-		email: 'test@test.com',
-		name: '테스트',
-		provider: 'google',
-		providerId: 'gid',
-		createdAt: new Date(),
-		updatedAt: new Date(),
-	};
+	let mockUser: User;
 
 	const mockGoogleProfile: GoogleProfile = {
 		emails: [{ value: 'test@test.com' }],
@@ -31,6 +24,8 @@ describe('OAuthService', () => {
 			getUserByEmail: jest.fn(),
 			createUser: jest.fn(),
 		};
+
+		mockUser = UserFactory.create();
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [OAuthService, { provide: UserService, useValue: userService }],
@@ -63,15 +58,12 @@ describe('OAuthService', () => {
 				id: 'new-gid',
 				provider: 'google',
 			} as GoogleProfile;
-			const newUser: User = {
-				id: '2',
+			const newUser: User = UserFactory.create({
 				email: 'new@test.com',
 				name: '신규유저',
 				provider: 'google',
 				providerId: 'new-gid',
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			};
+			});
 			userService.getUserByEmail.mockResolvedValue(null);
 			userService.createUser.mockResolvedValue(newUser);
 			const result = await service.handleGoogleLogin(newUserProfile);

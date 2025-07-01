@@ -1,9 +1,12 @@
 import { UserRepository } from '../user.repository';
 import { PrismaService } from 'src/database/prisma.service';
+import { UserFactory } from '../../../../../test/factories/user.factory';
 
 describe('UserRepository', () => {
 	let repo: UserRepository;
 	let prisma: PrismaService;
+
+	let mockUser: any;
 
 	beforeEach(() => {
 		prisma = {
@@ -14,6 +17,7 @@ describe('UserRepository', () => {
 			},
 		} as any;
 		repo = new UserRepository(prisma);
+		mockUser = UserFactory.create();
 	});
 
 	it('should be defined', () => {
