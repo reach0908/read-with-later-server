@@ -57,9 +57,7 @@ export class AuthController {
 	@ApiOperation({ summary: 'Refresh tokens' })
 	@ApiResponse({ status: 200, description: 'Tokens refreshed successfully' })
 	@ApiResponse({ status: 401, description: 'Refresh token not found' })
-	@ApiBearerAuth('access-token')
 	@Post('refresh')
-	@UseGuards(JwtAuthGuard)
 	async refreshTokens(@Req() req: AuthRequest, @Res() res: Response) {
 		try {
 			const refreshToken = req.cookies?.refresh_token;
