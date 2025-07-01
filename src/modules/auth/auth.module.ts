@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
@@ -13,6 +13,7 @@ import { TokenService } from './services/token.service';
 import { OAuthService } from './services/oauth.service';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 
+@Global()
 @Module({
 	imports: [
 		JwtModule.registerAsync({
@@ -28,6 +29,6 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
 	],
 	controllers: [AuthController],
 	providers: [AuthService, TokenService, OAuthService, GoogleStrategy, JwtAuthGuard, RefreshTokenRepository],
-	exports: [AuthService, JwtAuthGuard],
+	exports: [AuthService, JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}
