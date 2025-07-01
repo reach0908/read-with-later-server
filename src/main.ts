@@ -4,9 +4,13 @@ import { AppModule } from './app.module';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
+
+	// Helmet 보안 미들웨어 추가
+	app.use(helmet());
 
 	// CORS 설정
 	app.enableCors({
