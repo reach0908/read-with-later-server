@@ -81,7 +81,7 @@ describe('AuthController', () => {
 			await controller.googleCallback(mockReq, mockRes);
 
 			expect(tokenService.generateTokenPair).toHaveBeenCalledWith(mockUser);
-			expect(mockRes.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback');
+			expect(mockRes.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
 		});
 
 		it('유저가 없으면 에러 페이지로 리다이렉트', async () => {

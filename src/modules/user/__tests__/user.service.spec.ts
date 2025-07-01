@@ -1,16 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from 'src/modules/user/user.service';
-import { PrismaService } from 'src/database/prisma.service';
 import { CreateUserInput } from 'src/modules/user/dto/create-user.input';
 import { User } from '@prisma/client';
+import { UserRepository } from 'src/modules/user/repositories/user.repository';
 
 describe('UserService', () => {
 	let service: UserService;
-	let prismaService: {
-		user: {
-			findUnique: jest.Mock;
-			create: jest.Mock;
-		};
+	let userRepository: {
+		findUnique: jest.Mock;
+		create: jest.Mock;
 	};
 
 	const mockUser: User = {
@@ -24,15 +22,13 @@ describe('UserService', () => {
 	};
 
 	beforeEach(async () => {
-		prismaService = {
-			user: {
-				findUnique: jest.fn(),
-				create: jest.fn(),
-			},
+		userRepository = {
+			findUnique: jest.fn(),
+			create: jest.fn(),
 		};
 
 		const module: TestingModule = await Test.createTestingModule({
-			providers: [UserService, { provide: PrismaService, useValue: prismaService }],
+			providers: [UserService, { provide: UserRepository, useValue: userRepository }],
 		}).compile();
 
 		service = module.get<UserService>(UserService);
@@ -46,37 +42,33 @@ describe('UserService', () => {
 		expect(service).toBeDefined();
 	});
 
-	describe('findByEmail', () => {
+	describe('getUserByEmail', () => {
 		it('이메일로 유저를 성공적으로 찾는다', async () => {
 			const email = 'test@test.com';
-			prismaService.user.findUnique.mockResolvedValue(mockUser);
+			userRepository.findUnique.mockResolvedValue(mockUser);
 
-			const result = await service.findByEmail(email);
+			const result = await service.getUserByEmail(email);
 
-			expect(prismaService.user.findUnique).toHaveBeenCalledWith({
-				where: { email },
-			});
+			expect(userRepository.findUnique).toHaveBeenCalledWith({ email });
 			expect(result).toEqual(mockUser);
 		});
 
 		it('존재하지 않는 이메일의 경우 null을 반환한다', async () => {
 			const email = 'notfound@test.com';
-			prismaService.user.findUnique.mockResolvedValue(null);
+			userRepository.findUnique.mockResolvedValue(null);
 
-			const result = await service.findByEmail(email);
+			const result = await service.getUserByEmail(email);
 
-			expect(prismaService.user.findUnique).toHaveBeenCalledWith({
-				where: { email },
-			});
+			expect(userRepository.findUnique).toHaveBeenCalledWith({ email });
 			expect(result).toBeNull();
 		});
 
 		it('데이터베이스 에러 발생 시 예외를 전파한다', async () => {
 			const email = 'test@test.com';
 			const error = new Error('Database connection error');
-			prismaService.user.findUnique.mockRejectedValue(error);
+			userRepository.findUnique.mockRejectedValue(error);
 
-			await expect(service.findByEmail(email)).rejects.toThrow('Database connection error');
+			await expect(service.getUserByEmail(email)).rejects.toThrow('Database connection error');
 		});
 	});
 
@@ -96,13 +88,11 @@ describe('UserService', () => {
 				updatedAt: new Date('2024-01-02'),
 			};
 
-			prismaService.user.create.mockResolvedValue(createdUser);
+			userRepository.create.mockResolvedValue(createdUser);
 
 			const result = await service.createUser(createUserInput);
 
-			expect(prismaService.user.create).toHaveBeenCalledWith({
-				data: createUserInput,
-			});
+			expect(userRepository.create).toHaveBeenCalledWith(createUserInput);
 			expect(result).toEqual(createdUser);
 		});
 
@@ -121,13 +111,11 @@ describe('UserService', () => {
 				updatedAt: new Date('2024-01-03'),
 			};
 
-			prismaService.user.create.mockResolvedValue(createdUser);
+			userRepository.create.mockResolvedValue(createdUser);
 
 			const result = await service.createUser(createUserInput);
 
-			expect(prismaService.user.create).toHaveBeenCalledWith({
-				data: createUserInput,
-			});
+			expect(userRepository.create).toHaveBeenCalledWith(createUserInput);
 			expect(result).toEqual(createdUser);
 		});
 
@@ -140,7 +128,7 @@ describe('UserService', () => {
 			};
 
 			const error = new Error('Unique constraint violation');
-			prismaService.user.create.mockRejectedValue(error);
+			userRepository.create.mockRejectedValue(error);
 
 			await expect(service.createUser(createUserInput)).rejects.toThrow('Unique constraint violation');
 		});
@@ -159,7 +147,7 @@ describe('UserService', () => {
 				meta: { target: ['email'] },
 			};
 
-			prismaService.user.create.mockRejectedValue(prismaError);
+			userRepository.create.mockRejectedValue(prismaError);
 
 			await expect(service.createUser(createUserInput)).rejects.toEqual(prismaError);
 		});

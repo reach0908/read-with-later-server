@@ -7,7 +7,7 @@ import { GoogleProfile } from 'src/types';
 
 describe('OAuthService', () => {
 	let service: OAuthService;
-	let userService: { findByEmail: jest.Mock; createUser: jest.Mock };
+	let userService: { getUserByEmail: jest.Mock; createUser: jest.Mock };
 
 	const mockUser: User = {
 		id: '1',
@@ -27,7 +27,7 @@ describe('OAuthService', () => {
 
 	beforeEach(async () => {
 		userService = {
-			findByEmail: jest.fn(),
+			getUserByEmail: jest.fn(),
 			createUser: jest.fn(),
 		};
 
@@ -48,11 +48,11 @@ describe('OAuthService', () => {
 
 	describe('handleGoogleLogin', () => {
 		it('기존 유저가 있으면 해당 유저를 반환한다', async () => {
-			userService.findByEmail.mockResolvedValue(mockUser);
+			userService.getUserByEmail.mockResolvedValue(mockUser);
 
 			const result = await service.handleGoogleLogin(mockGoogleProfile);
 
-			expect(userService.findByEmail).toHaveBeenCalledWith('test@test.com');
+			expect(userService.getUserByEmail).toHaveBeenCalledWith('test@test.com');
 			expect(userService.createUser).not.toHaveBeenCalled();
 			expect(result).toEqual(mockUser);
 		});
@@ -74,12 +74,12 @@ describe('OAuthService', () => {
 				updatedAt: new Date(),
 			};
 
-			userService.findByEmail.mockResolvedValue(null);
+			userService.getUserByEmail.mockResolvedValue(null);
 			userService.createUser.mockResolvedValue(newUser);
 
 			const result = await service.handleGoogleLogin(newUserProfile);
 
-			expect(userService.findByEmail).toHaveBeenCalledWith('new@test.com');
+			expect(userService.getUserByEmail).toHaveBeenCalledWith('new@test.com');
 			expect(userService.createUser).toHaveBeenCalledWith({
 				email: 'new@test.com',
 				name: '신규유저',
@@ -113,14 +113,14 @@ describe('OAuthService', () => {
 
 		it('UserService에서 에러 발생 시 예외를 전파한다', async () => {
 			const error = new Error('Database error');
-			userService.findByEmail.mockRejectedValue(error);
+			userService.getUserByEmail.mockRejectedValue(error);
 
 			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('Database error');
 		});
 
 		it('유저 생성 시 에러 발생하면 예외를 전파한다', async () => {
 			const error = new Error('Create user failed');
-			userService.findByEmail.mockResolvedValue(null);
+			userService.getUserByEmail.mockResolvedValue(null);
 			userService.createUser.mockRejectedValue(error);
 
 			await expect(service.handleGoogleLogin(mockGoogleProfile)).rejects.toThrow('Create user failed');

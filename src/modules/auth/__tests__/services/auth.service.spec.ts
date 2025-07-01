@@ -6,7 +6,7 @@ import { User } from '@prisma/client';
 
 describe('AuthService', () => {
 	let service: AuthService;
-	let userService: { findByEmail: jest.Mock };
+	let userService: { getUserByEmail: jest.Mock };
 
 	const mockUser: User = {
 		id: '1',
@@ -20,7 +20,7 @@ describe('AuthService', () => {
 
 	beforeEach(async () => {
 		userService = {
-			findByEmail: jest.fn(),
+			getUserByEmail: jest.fn(),
 		};
 
 		const module: TestingModule = await Test.createTestingModule({
@@ -40,16 +40,16 @@ describe('AuthService', () => {
 
 	describe('validateUser', () => {
 		it('유효한 이메일로 유저를 반환한다', async () => {
-			userService.findByEmail.mockResolvedValue(mockUser);
+			userService.getUserByEmail.mockResolvedValue(mockUser);
 
 			const result = await service.validateUser(mockUser.email);
 
-			expect(userService.findByEmail).toHaveBeenCalledWith(mockUser.email);
+			expect(userService.getUserByEmail).toHaveBeenCalledWith(mockUser.email);
 			expect(result).toEqual(mockUser);
 		});
 
 		it('존재하지 않는 유저의 경우 NotFoundException을 던진다', async () => {
-			userService.findByEmail.mockResolvedValue(null);
+			userService.getUserByEmail.mockResolvedValue(null);
 
 			await expect(service.validateUser('none@test.com')).rejects.toThrow(NotFoundException);
 			await expect(service.validateUser('none@test.com')).rejects.toThrow('Invalid credentials');
@@ -57,7 +57,7 @@ describe('AuthService', () => {
 
 		it('UserService에서 에러 발생 시 예외를 전파한다', async () => {
 			const error = new Error('Database error');
-			userService.findByEmail.mockRejectedValue(error);
+			userService.getUserByEmail.mockRejectedValue(error);
 
 			await expect(service.validateUser('test@test.com')).rejects.toThrow('Database error');
 		});

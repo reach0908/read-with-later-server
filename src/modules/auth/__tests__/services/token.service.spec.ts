@@ -19,7 +19,7 @@ describe('TokenService', () => {
 		};
 		$transaction: jest.Mock;
 	};
-	let userService: { findByEmail: jest.Mock };
+	let userService: { getUserByEmail: jest.Mock };
 	let authConfig: { JWT_ACCESS_EXPIRES_IN: string; JWT_REFRESH_EXPIRES_IN: string };
 
 	const mockUser: User = {
@@ -51,7 +51,7 @@ describe('TokenService', () => {
 		};
 
 		userService = {
-			findByEmail: jest.fn(),
+			getUserByEmail: jest.fn(),
 		};
 
 		authConfig = {
@@ -146,7 +146,7 @@ describe('TokenService', () => {
 		it('유효한 리프레시 토큰으로 새로운 토큰 쌍을 생성한다', async () => {
 			jwtService.verify.mockReturnValue(mockJwtPayload);
 			prismaService.refreshToken.findFirst.mockResolvedValue({ id: '1' });
-			userService.findByEmail.mockResolvedValue(mockUser);
+			userService.getUserByEmail.mockResolvedValue(mockUser);
 			jwtService.sign.mockReturnValueOnce('new-access-token').mockReturnValueOnce('new-refresh-token');
 			prismaService.refreshToken.deleteMany.mockResolvedValue(undefined);
 			prismaService.refreshToken.create.mockResolvedValue(undefined);
@@ -161,7 +161,7 @@ describe('TokenService', () => {
 					isValid: true,
 				},
 			});
-			expect(userService.findByEmail).toHaveBeenCalledWith(mockUser.email);
+			expect(userService.getUserByEmail).toHaveBeenCalledWith(mockUser.email);
 			expect(result).toEqual({
 				accessToken: 'new-access-token',
 				refreshToken: 'new-refresh-token',
@@ -186,7 +186,7 @@ describe('TokenService', () => {
 		it('유저가 존재하지 않는 경우 UnauthorizedException을 던진다', async () => {
 			jwtService.verify.mockReturnValue(mockJwtPayload);
 			prismaService.refreshToken.findFirst.mockResolvedValue({ id: '1' });
-			userService.findByEmail.mockResolvedValue(null);
+			userService.getUserByEmail.mockResolvedValue(null);
 
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(UnauthorizedException);
 			await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow('Invalid refresh token');
