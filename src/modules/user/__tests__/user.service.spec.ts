@@ -1,14 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from 'src/modules/user/user.service';
-import { CreateUserInput } from 'src/modules/user/dto/create-user.input';
 import { User } from '@prisma/client';
 import { UserRepository } from 'src/modules/user/repositories/user.repository';
+import { CreateUserInput } from 'src/modules/user/dto/create-user.input';
 
 describe('UserService', () => {
 	let service: UserService;
 	let userRepository: {
 		findUnique: jest.Mock;
 		create: jest.Mock;
+		update: jest.Mock;
 	};
 
 	const mockUser: User = {
@@ -25,6 +26,7 @@ describe('UserService', () => {
 		userRepository = {
 			findUnique: jest.fn(),
 			create: jest.fn(),
+			update: jest.fn(),
 		};
 
 		const module: TestingModule = await Test.createTestingModule({
@@ -150,6 +152,39 @@ describe('UserService', () => {
 			userRepository.create.mockRejectedValue(prismaError);
 
 			await expect(service.createUser(createUserInput)).rejects.toEqual(prismaError);
+		});
+	});
+
+	describe('updateUser', () => {
+		it('유저 정보를 성공적으로 업데이트한다', async () => {
+			const userId = '1';
+			const updateUserInput = { name: '업데이트된 이름' };
+			const updatedUser = { ...mockUser, name: '업데이트된 이름' };
+			userRepository.findUnique.mockResolvedValue(mockUser);
+			userRepository.update.mockResolvedValue(updatedUser);
+			const result = await service.updateUser(userId, updateUserInput);
+			expect(userRepository.findUnique).toHaveBeenCalledWith({ id: userId });
+			expect(userRepository.update).toHaveBeenCalledWith(userId, updateUserInput);
+			expect(result).toEqual(updatedUser);
+		});
+
+		it('빈 객체가 들어오면 BadRequestException을 던진다', async () => {
+			const userId = '1';
+			const updateUserInput = {};
+			userRepository.findUnique.mockResolvedValue(mockUser);
+			await expect(service.updateUser(userId, updateUserInput)).rejects.toThrow('No fields to update');
+			// findUnique 호출 전에 예외가 발생하므로 update는 호출되지 않아야 함
+			expect(userRepository.findUnique).not.toHaveBeenCalled();
+			expect(userRepository.update).not.toHaveBeenCalled();
+		});
+
+		it('존재하지 않는 유저 ID로 업데이트 시 NotFoundException을 던진다', async () => {
+			const userId = '999';
+			const updateUserInput = { name: '업데이트된 이름' };
+			userRepository.findUnique.mockResolvedValue(null);
+			await expect(service.updateUser(userId, updateUserInput)).rejects.toThrow('User not found');
+			expect(userRepository.findUnique).toHaveBeenCalledWith({ id: userId });
+			expect(userRepository.update).not.toHaveBeenCalled();
 		});
 	});
 });
