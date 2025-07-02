@@ -1,8 +1,8 @@
 {
 	"name": "read-with-later-server",
 	"version": "0.0.1",
-	"description": "",
-	"author": "",
+	"description": "Read with later server",
+	"author": "Productivity Ninjas",
 	"private": true,
 	"license": "UNLICENSED",
 	"scripts": {
@@ -22,11 +22,13 @@
 		"test:cov": "jest --coverage",
 		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 		"prisma:generate": "prisma generate",
-		"prisma:migrate": "dotenv -e .env.$ENV -- prisma migrate dev",
+		"prisma:migrate": "dotenv -e .env.$ENV -- prisma migrate $ENV",
 		"prisma:migrate:prod": "dotenv -e .env.prod -- prisma migrate deploy",
+		"prisma:migrate:local": "dotenv -e .env.local -- prisma migrate dev",
 		"prisma:studio": "dotenv -e .env.$ENV -- prisma studio"
 	},
 	"dependencies": {
+		"@mozilla/readability": "^0.6.0",
 		"@nestjs/common": "^11.0.1",
 		"@nestjs/config": "^4.0.2",
 		"@nestjs/core": "^11.0.1",
@@ -36,15 +38,20 @@
 		"@nestjs/swagger": "^11.2.0",
 		"@nestjs/throttler": "^6.4.0",
 		"@prisma/client": "^6.10.1",
+		"axios": "^1.10.0",
+		"cheerio": "^1.1.0",
 		"class-transformer": "^0.5.1",
 		"class-validator": "^0.14.2",
 		"cookie-parser": "^1.4.7",
 		"helmet": "^8.1.0",
+		"jsdom": "^26.1.0",
 		"passport": "^0.7.0",
 		"passport-google-oauth20": "^2.0.0",
+		"puppeteer": "^24.11.2",
 		"reflect-metadata": "^0.2.2",
 		"rxjs": "^7.8.1",
-		"swagger-ui-express": "^5.0.1"
+		"swagger-ui-express": "^5.0.1",
+		"turndown": "^7.2.0"
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3.2.0",
