@@ -15,9 +15,9 @@ export class ScraperService {
 		private readonly articleStateManager: ArticleStateManager,
 	) {}
 
-	async scrapeAndSave(url: string): Promise<Article> {
+	async scrapeAndSave(url: string, userId: string): Promise<Article> {
 		// 1. DB에 초기 레코드 생성 (상태: PROCESSING)
-		const articleRecord = await this.articleStateManager.createProcessing(url);
+		const articleRecord = await this.articleStateManager.createProcessing(url, userId);
 
 		try {
 			// 2. 하이브리드 스크래핑 실행

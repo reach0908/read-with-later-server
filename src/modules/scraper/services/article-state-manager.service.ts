@@ -8,10 +8,13 @@ import { ScrapedContent } from '../interfaces/scraping-strategy.interface';
 export class ArticleStateManagerService implements ArticleStateManager {
 	constructor(private readonly articleService: ArticleService) {}
 
-	async createProcessing(url: string): Promise<Article> {
+	async createProcessing(url: string, userId: string): Promise<Article> {
 		return this.articleService.createArticle({
 			sourceUrl: url,
 			status: ArticleStatus.PROCESSING,
+			user: {
+				connect: { id: userId },
+			},
 		});
 	}
 

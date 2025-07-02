@@ -21,4 +21,12 @@ export class ArticleService {
 	async findArticleBySourceUrl(sourceUrl: string): Promise<Article | null> {
 		return this.articleRepository.findBySourceUrl(sourceUrl);
 	}
+
+	async findArticlesByUserId(userId: string): Promise<Article[]> {
+		return this.articleRepository.findByUserId(userId);
+	}
+
+	async findArticleByUserIdAndArticleId(userId: string, articleId: string): Promise<Article | null> {
+		return this.articleRepository.findByUserIdAndArticleId(userId, articleId);
+	}
 }

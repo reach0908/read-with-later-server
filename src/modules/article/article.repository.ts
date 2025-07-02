@@ -21,4 +21,20 @@ export class ArticleRepository {
 	async findBySourceUrl(sourceUrl: string): Promise<Article | null> {
 		return this.prisma.article.findUnique({ where: { sourceUrl } });
 	}
+
+	async findByUserId(userId: string): Promise<Article[]> {
+		return this.prisma.article.findMany({
+			where: { userId },
+			orderBy: { createdAt: 'desc' },
+		});
+	}
+
+	async findByUserIdAndArticleId(userId: string, articleId: string): Promise<Article | null> {
+		return this.prisma.article.findFirst({
+			where: {
+				id: articleId,
+				userId,
+			},
+		});
+	}
 }
