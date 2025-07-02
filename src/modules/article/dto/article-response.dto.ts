@@ -10,7 +10,7 @@ export class ArticleResponseDto {
 	author?: string;
 	excerpt?: string;
 	content?: string;
-	textContent?: string;
+	htmlContent?: string;
 	thumbnailUrl?: string;
 	scrapedWith?: ScraperType;
 
@@ -24,7 +24,8 @@ export class ArticleResponseDto {
 		this.author = article.author ?? undefined;
 		this.excerpt = article.excerpt ?? undefined;
 		this.content = article.content ?? undefined;
-		this.textContent = article.textContent ?? undefined;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		this.htmlContent = (article as any).htmlContent ?? undefined;
 		this.thumbnailUrl = article.thumbnailUrl ?? undefined;
 		this.scrapedWith = article.scrapedWith ?? undefined;
 	}

@@ -4,26 +4,19 @@ import { ScraperService } from './scraper.service';
 import { ArticleModule } from '../article/article.module';
 
 // Implementations
-import { TurndownHtmlConverter } from './converters/turndown-html.converter';
 import { ArticleStateManagerService } from './services/article-state-manager.service';
 import { LightweightScrapingStrategy } from './strategies/lightweight-scraping.strategy';
 import { HeavyweightScrapingStrategy } from './strategies/heavyweight-scraping.strategy';
 import { ScrapingStrategyFactory } from './factories/scraping-strategy.factory';
 
 // Tokens
-import { HTML_CONVERTER_TOKEN, ARTICLE_STATE_MANAGER_TOKEN } from './constants/injection.tokens';
+import { ARTICLE_STATE_MANAGER_TOKEN } from './constants/injection.tokens';
 
 @Module({
 	imports: [ArticleModule],
 	controllers: [ScraperController],
 	providers: [
 		ScraperService,
-
-		// HTML Converter
-		{
-			provide: HTML_CONVERTER_TOKEN,
-			useClass: TurndownHtmlConverter,
-		},
 
 		// Article State Manager
 		{

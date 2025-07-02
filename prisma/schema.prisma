@@ -57,7 +57,7 @@ model Article {
   author        String?
   excerpt       String?
   content       String?  @db.Text
-  textContent   String?  @db.Text
+  htmlContent   String?  @db.Text
   thumbnailUrl  String?
   failureReason String?
   scrapedWith   ScraperType?

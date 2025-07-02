@@ -1,7 +1,7 @@
 export interface ScrapedContent {
 	title: string;
 	content: string;
-	textContent: string;
+	htmlContent: string;
 	author: string | null;
 	excerpt: string;
 }

@@ -16,18 +16,32 @@ export class ScraperService {
 	) {}
 
 	async scrapeAndSave(url: string, userId: string): Promise<Article> {
+		this.logger.log(`Starting scraping process for URL: ${url}, User: ${userId}`);
+
+		// URL 기본 검증
+		try {
+			new URL(url); // URL 형식 검증
+		} catch {
+			this.logger.error(`Invalid URL format: ${url}`);
+			throw new Error(`Invalid URL format: ${url}`);
+		}
+
 		// 1. DB에 초기 레코드 생성 (상태: PROCESSING)
 		const articleRecord = await this.articleStateManager.createProcessing(url, userId);
+		this.logger.log(`Created processing record with ID: ${articleRecord.id}`);
 
 		try {
 			// 2. 하이브리드 스크래핑 실행
 			const scrapedData = await this.executeScrapingStrategies(url);
+			this.logger.log(
+				`Successfully scraped content. Title: ${scrapedData.title}, Content length: ${scrapedData.content.length}`,
+			);
 
 			// 3. 성공 시 DB 업데이트 (상태: COMPLETED)
 			return await this.articleStateManager.markCompleted(articleRecord.id, scrapedData);
 		} catch (error) {
 			const err = error as Error;
-			this.logger.error(`Scraping failed for ${url}: ${err.message}`);
+			this.logger.error(`Scraping failed for ${url}: ${err.message}`, err.stack);
 
 			// 4. 실패 시 DB 업데이트 (상태: FAILED)
 			await this.articleStateManager.markFailed(articleRecord.id, err.message);

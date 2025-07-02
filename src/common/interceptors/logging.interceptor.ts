@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
 	private readonly logger = new Logger(LoggingInterceptor.name);
-	private readonly logFormat = '[%s] %s - %d - %dms';
+	// 제거: NestJS Logger는 printf 스타일 포맷팅을 지원하지 않음
 
 	private getNow(): number {
 		if (typeof process.hrtime?.bigint === 'function') {
@@ -33,7 +33,7 @@ export class LoggingInterceptor implements NestInterceptor {
 					const responseTime = endTime - startTime;
 					const statusCode = res.statusCode;
 					if (statusCode >= 400 || responseTime > 1000) {
-						this.logger.warn(this.logFormat, method, url, statusCode, responseTime);
+						this.logger.warn(`${method} ${url} - ${statusCode} - ${responseTime.toFixed(2)}ms`);
 					} else {
 						this.logger.log(`${method} ${url} - ${statusCode}`);
 					}
@@ -43,7 +43,7 @@ export class LoggingInterceptor implements NestInterceptor {
 				const endTime = this.getNow();
 				const responseTime = endTime - startTime;
 				const statusCode = res.statusCode || 500;
-				this.logger.error(this.logFormat, method, url, statusCode, responseTime);
+				this.logger.error(`${method} ${url} - ${statusCode} - ${responseTime.toFixed(2)}ms`);
 				if (err instanceof Error) {
 					this.logger.error(`${method} ${url} - ${err.message}`);
 				}
