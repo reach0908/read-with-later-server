@@ -8,10 +8,14 @@ import authConfig from 'src/config/auth.config';
 import appConfig from 'src/config/app.config';
 import throttlerConfig from 'src/config/throttler.config';
 
-// Modules
+// Common Modules
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthModule } from 'src/modules/auth/auth.module';
+import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from 'src/database/database.module';
+
+// Modules
+import { AuthModule } from 'src/modules/auth/auth.module';
+import { ScraperModule } from './modules/scaper/scraper.module';
 
 @Module({
 	imports: [
@@ -30,10 +34,26 @@ import { DatabaseModule } from 'src/database/database.module';
 				},
 			],
 		}),
+		BullModule.forRoot({
+			connection: {
+				host: process.env.REDIS_HOST,
+				port: Number(process.env.REDIS_PORT),
+				username: process.env.REDIS_USERNAME,
+				password: process.env.REDIS_PASSWORD,
+			},
+			defaultJobOptions: {
+				attempts: 3,
+				backoff: {
+					type: 'exponential',
+					delay: 3000,
+				},
+			},
+		}),
 		// Infra
 		DatabaseModule,
 		// Modules
 		AuthModule,
+		ScraperModule,
 	],
 	controllers: [],
 	providers: [
