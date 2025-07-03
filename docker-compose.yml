@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+    # PostgreSQL 데이터베이스
+    postgres:
+        image: postgres:15-alpine
+        container_name: postgres_db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: read_with_later
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres123
+            PGDATA: /var/lib/postgresql/data/pgdata
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+        networks:
+            - app_network
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # Redis 서버
+    redis:
+        image: redis:7-alpine
+        container_name: redis_server
+        restart: unless-stopped
+        command: redis-server --requirepass redis123
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+        networks:
+            - app_network
+        healthcheck:
+            test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+            interval: 10s
+            timeout: 3s
+            retries: 5
+
+volumes:
+    postgres_data:
+        driver: local
+    redis_data:
+        driver: local
+
+networks:
+    app_network:
+        driver: bridge

@@ -24,7 +24,16 @@
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "dotenv -e .env.$ENV -- prisma migrate dev",
 		"prisma:migrate:prod": "dotenv -e .env.prod -- prisma migrate deploy",
-		"prisma:studio": "dotenv -e .env.$ENV -- prisma studio"
+		"prisma:studio": "dotenv -e .env.$ENV -- prisma studio",
+		"docker:up": "./scripts/docker-dev.sh up",
+		"docker:down": "./scripts/docker-dev.sh down",
+		"docker:logs": "./scripts/docker-dev.sh logs",
+		"docker:reset": "./scripts/docker-dev.sh reset",
+		"docker:status": "./scripts/docker-dev.sh status",
+		"docker:psql": "./scripts/docker-dev.sh psql",
+		"docker:redis": "./scripts/docker-dev.sh redis",
+		"prisma:migrate:docker": "dotenv -e .env.local -- prisma migrate dev",
+		"prisma:studio:docker": "dotenv -e .env.local -- prisma studio"
 	},
 	"dependencies": {
 		"@nestjs/common": "^11.0.1",
