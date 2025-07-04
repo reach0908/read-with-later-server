@@ -111,22 +111,28 @@ export class ArticleRepository {
 			}
 		});
 
-		return this.prisma.article.update({
-			where: {
-				id,
-				userId,
-			},
-			data,
-			include: {
-				user: {
-					select: {
-						id: true,
-						email: true,
-						name: true,
+		try {
+			return await this.prisma.article.update({
+				where: {
+					id,
+					userId,
+				},
+				data,
+				include: {
+					user: {
+						select: {
+							id: true,
+							email: true,
+							name: true,
+						},
 					},
 				},
-			},
-		});
+			});
+		} catch (error) {
+			// Article이 존재하지 않거나 사용자가 소유하지 않은 경우
+			this.logger.warn(`Failed to update article ${id} for user ${userId}: ${(error as Error).message}`);
+			return null;
+		}
 	}
 
 	/**
@@ -190,9 +196,9 @@ export class ArticleRepository {
 			...(isArchived !== undefined && { isArchived }),
 		};
 
-		// 정렬 조건 구성
+		// 정렬 조건 구성 - 타입 안전성 보장
 		const orderBy: Prisma.ArticleOrderByWithRelationInput = {
-			[sortBy]: sortOrder,
+			[sortBy as keyof Prisma.ArticleOrderByWithRelationInput]: sortOrder as Prisma.SortOrder,
 		};
 
 		const [articles, total] = await Promise.all([

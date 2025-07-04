@@ -66,6 +66,7 @@ model Article {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([url, userId]) // 사용자별 URL 중복 방지
+  @@unique([id, userId])  // id와 userId 복합 고유 제약조건 추가
   @@index([userId])
   @@index([userId, isBookmarked])
   @@index([userId, isArchived])

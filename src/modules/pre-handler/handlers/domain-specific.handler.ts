@@ -391,7 +391,10 @@ export class DomainSpecificHandler implements IContentHandler {
 				content = mediumResult.content;
 				contentType = 'text/html'; // Medium content comes as HTML
 			} else if (domain === 'blog.naver.com') {
-				title = await this.extractNaverBlogTitle(url);
+				const naverBlogResult = await this.extractNaverBlogContent(url);
+				title = naverBlogResult.title;
+				content = naverBlogResult.content;
+				contentType = 'text/html';
 			} else if (domain === 'substack.com') {
 				title = this.extractSubstackTitle(url);
 			} else if (domain === 'github.com') {
@@ -525,6 +528,164 @@ export class DomainSpecificHandler implements IContentHandler {
 						picture.parentNode?.replaceChild(img, picture);
 					}
 				}
+			}
+		});
+	}
+
+	/**
+	 * 네이버 블로그 콘텐츠와 이미지를 추출합니다.
+	 * @param url - 네이버 블로그 URL
+	 * @returns 추출된 타이틀과 콘텐츠
+	 */
+	private async extractNaverBlogContent(url: URL): Promise<{
+		title?: string;
+		content?: string;
+	}> {
+		try {
+			this.logger.debug(`Extracting Naver Blog content from: ${url.href}`);
+
+			// 네이버 블로그 접근을 위한 특수 헤더 설정
+			const response = await fetch(url.href, {
+				headers: {
+					'User-Agent':
+						'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1',
+					Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+					'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+					'Accept-Encoding': 'gzip, deflate',
+					Connection: 'keep-alive',
+					Referer: 'https://blog.naver.com/',
+				},
+				redirect: 'follow',
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const html = await response.text();
+			this.logger.debug(`Successfully fetched Naver Blog HTML, length: ${html.length}`);
+
+			const dom = new JSDOM(html);
+			const document = dom.window.document;
+
+			// 타이틀 추출
+			const title = this.extractNaverBlogTitleFromDocument(document);
+
+			// 네이버 블로그 이미지 최적화
+			this.optimizeNaverBlogImages(document);
+
+			// 콘텐츠 추출
+			const content = document.body?.outerHTML;
+
+			this.logger.log(`Successfully extracted Naver Blog content: title="${title?.substring(0, 50)}"`);
+
+			return {
+				title,
+				content,
+			};
+		} catch (error) {
+			this.logger.warn(`Failed to extract Naver Blog content from ${url.href}: ${(error as Error).message}`);
+
+			// 실패 시 기존 타이틀 추출 로직 사용
+			const fallbackTitle = await this.extractNaverBlogTitle(url);
+			return {
+				title: fallbackTitle,
+				content: undefined,
+			};
+		}
+	}
+
+	/**
+	 * 네이버 블로그 문서에서 타이틀을 추출합니다.
+	 * @param document - DOM 문서
+	 * @returns 추출된 타이틀
+	 */
+	private extractNaverBlogTitleFromDocument(document: Document): string | undefined {
+		// 다양한 방법으로 타이틀 추출 시도
+		const titleSelectors = [
+			'meta[property="og:title"]',
+			'meta[name="title"]',
+			'title',
+			'.se-title-text',
+			'.pcol1 .title',
+			'.blog-title',
+		];
+
+		for (const selector of titleSelectors) {
+			const element = document.querySelector(selector);
+			if (element) {
+				const title = element.getAttribute('content') || element.textContent;
+				if (title?.trim()) {
+					// 네이버 블로그 타이틀 정리
+					let cleanTitle = title.trim();
+					cleanTitle = cleanTitle.replace(/\s*:\s*네이버 블로그$/, '');
+					cleanTitle = cleanTitle.replace(/\s*\|\s*네이버 블로그$/, '');
+					return cleanTitle.trim();
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * 네이버 블로그의 이미지를 최적화합니다.
+	 * @param document - DOM 문서
+	 */
+	private optimizeNaverBlogImages(document: Document): void {
+		// 네이버 블로그 이미지 처리
+		const images = document.querySelectorAll('img');
+
+		images.forEach((img) => {
+			// 네이버 블로그 썸네일 URL을 원본 이미지 URL로 변환
+			const src = img.getAttribute('src') || img.getAttribute('data-src');
+			if (src) {
+				// 네이버 블로그 이미지 URL 패턴 처리
+				let optimizedSrc = src;
+
+				// 썸네일 URL을 원본 URL로 변환
+				if (src.includes('blogfiles.naver.net')) {
+					// 썸네일 파라미터 제거하여 원본 이미지 획득
+					optimizedSrc = src.replace(/\?.*$/, '');
+				}
+
+				// 상대 경로를 절대 경로로 변환
+				if (optimizedSrc.startsWith('//')) {
+					optimizedSrc = 'https:' + optimizedSrc;
+				} else if (optimizedSrc.startsWith('/')) {
+					optimizedSrc = 'https://blog.naver.com' + optimizedSrc;
+				}
+
+				// 최적화된 src 설정
+				img.setAttribute('src', optimizedSrc);
+
+				// lazy loading 속성 제거
+				img.removeAttribute('data-src');
+				img.removeAttribute('loading');
+			}
+		});
+
+		// 네이버 블로그 특수 이미지 태그 처리
+		const specialImages = document.querySelectorAll('[data-ke-src]');
+		specialImages.forEach((element) => {
+			const dataSrc = element.getAttribute('data-ke-src');
+			if (dataSrc) {
+				let optimizedSrc = dataSrc;
+
+				// 상대 경로를 절대 경로로 변환
+				if (optimizedSrc.startsWith('//')) {
+					optimizedSrc = 'https:' + optimizedSrc;
+				} else if (optimizedSrc.startsWith('/')) {
+					optimizedSrc = 'https://blog.naver.com' + optimizedSrc;
+				}
+
+				// img 태그로 변환
+				const img = document.createElement('img');
+				img.src = optimizedSrc;
+				img.alt = element.getAttribute('alt') || '';
+
+				// 기존 요소를 새로운 img 태그로 교체
+				element.parentNode?.replaceChild(img, element);
 			}
 		});
 	}
