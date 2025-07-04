@@ -22,9 +22,9 @@
 		"test:cov": "jest --coverage",
 		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 		"prisma:generate": "prisma generate",
-		"prisma:migrate": "dotenv -e .env.$ENV -- prisma migrate dev",
-		"prisma:migrate:prod": "dotenv -e .env.prod -- prisma migrate deploy",
-		"prisma:studio": "dotenv -e .env.$ENV -- prisma studio"
+		"prisma:migrate": "prisma migrate dev",
+		"prisma:migrate:prod": "prisma migrate deploy",
+		"prisma:studio": "prisma studio"
 	},
 	"dependencies": {
 		"@nestjs/common": "^11.0.1",

@@ -12,12 +12,12 @@ import throttlerConfig from 'src/config/throttler.config';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from 'src/modules/auth/auth.module';
 import { DatabaseModule } from 'src/database/database.module';
+import { HealthController } from 'src/health.controller';
 
 @Module({
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
-			envFilePath: `.env.${process.env.NODE_ENV ?? 'local'}`,
 			load: [databaseConfig, authConfig, appConfig, throttlerConfig],
 		}),
 		ThrottlerModule.forRootAsync({
@@ -35,7 +35,7 @@ import { DatabaseModule } from 'src/database/database.module';
 		// Modules
 		AuthModule,
 	],
-	controllers: [],
+	controllers: [HealthController],
 	providers: [
 		{
 			provide: APP_GUARD,

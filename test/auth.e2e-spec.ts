@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 describe('AuthController (e2e)', () => {
 	let app: INestApplication;
@@ -12,6 +14,10 @@ describe('AuthController (e2e)', () => {
 		}).compile();
 
 		app = moduleFixture.createNestApplication();
+
+		// 테스트 환경에서도 쿠키 파싱이 가능하도록 미들웨어 적용
+		app.use(cookieParser());
+
 		await app.init();
 	});
 
