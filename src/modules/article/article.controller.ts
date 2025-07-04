@@ -20,12 +20,7 @@ import { UpdateArticleInput } from './dto/update-article.input';
 import { ListArticlesInput } from './dto/list-articles.input';
 import { ArticleOutput } from './dto/article.output';
 import { PaginatedArticlesOutput } from './dto/paginated-articles.output';
-interface AuthenticatedRequest extends Request {
-	user: {
-		id: string;
-		email: string;
-	};
-}
+import { AuthRequest } from 'src/types';
 
 @ApiTags('articles')
 @Controller('articles')
@@ -56,7 +51,7 @@ export class ArticleController {
 		status: 401,
 		description: '인증 실패',
 	})
-	async createArticle(@Request() req: any, @Body() input: CreateArticleInput): Promise<ArticleOutput> {
+	async createArticle(@Request() req: AuthRequest, @Body() input: CreateArticleInput): Promise<ArticleOutput> {
 		return this.articleService.createArticle(req.user.id, input);
 	}
 
@@ -85,7 +80,10 @@ export class ArticleController {
 		status: 401,
 		description: '인증 실패',
 	})
-	async getArticles(@Request() req: any, @Query() query: ListArticlesInput): Promise<PaginatedArticlesOutput> {
+	async getArticles(
+		@Request() req: AuthRequest,
+		@Query() query: ListArticlesInput,
+	): Promise<PaginatedArticlesOutput> {
 		return this.articleService.getArticles(req.user.id, query);
 	}
 
@@ -110,7 +108,7 @@ export class ArticleController {
 		status: 404,
 		description: 'Article을 찾을 수 없음',
 	})
-	async getArticle(@Request() req: any, @Param('id') id: string): Promise<ArticleOutput> {
+	async getArticle(@Request() req: AuthRequest, @Param('id') id: string): Promise<ArticleOutput> {
 		return this.articleService.getArticle(req.user.id, id);
 	}
 
@@ -137,7 +135,7 @@ export class ArticleController {
 		description: 'Article을 찾을 수 없음',
 	})
 	async updateArticle(
-		@Request() req: any,
+		@Request() req: AuthRequest,
 		@Param('id') id: string,
 		@Body() input: UpdateArticleInput,
 	): Promise<ArticleOutput> {
@@ -165,7 +163,7 @@ export class ArticleController {
 		status: 404,
 		description: 'Article을 찾을 수 없음',
 	})
-	async deleteArticle(@Request() req: any, @Param('id') id: string): Promise<void> {
+	async deleteArticle(@Request() req: AuthRequest, @Param('id') id: string): Promise<void> {
 		return this.articleService.deleteArticle(req.user.id, id);
 	}
 
@@ -190,7 +188,7 @@ export class ArticleController {
 		status: 404,
 		description: 'Article을 찾을 수 없음',
 	})
-	async toggleBookmark(@Request() req: any, @Param('id') id: string): Promise<ArticleOutput> {
+	async toggleBookmark(@Request() req: AuthRequest, @Param('id') id: string): Promise<ArticleOutput> {
 		return this.articleService.toggleBookmark(req.user.id, id);
 	}
 
@@ -215,7 +213,7 @@ export class ArticleController {
 		status: 404,
 		description: 'Article을 찾을 수 없음',
 	})
-	async toggleArchive(@Request() req: any, @Param('id') id: string): Promise<ArticleOutput> {
+	async toggleArchive(@Request() req: AuthRequest, @Param('id') id: string): Promise<ArticleOutput> {
 		return this.articleService.toggleArchive(req.user.id, id);
 	}
 
@@ -244,7 +242,7 @@ export class ArticleController {
 		status: 401,
 		description: '인증 실패',
 	})
-	async getArticleStats(@Request() req: any): Promise<{
+	async getArticleStats(@Request() req: AuthRequest): Promise<{
 		total: number;
 		bookmarked: number;
 		archived: number;
@@ -273,7 +271,7 @@ export class ArticleController {
 		status: 401,
 		description: '인증 실패',
 	})
-	async getUserTags(@Request() req: any): Promise<string[]> {
+	async getUserTags(@Request() req: AuthRequest): Promise<string[]> {
 		return this.articleService.getUserTags(req.user.id);
 	}
 
@@ -306,7 +304,7 @@ export class ArticleController {
 		status: 401,
 		description: '인증 실패',
 	})
-	async checkUrl(@Request() req: any, @Query('url') url: string): Promise<{ exists: boolean; url: string }> {
+	async checkUrl(@Request() req: AuthRequest, @Query('url') url: string): Promise<{ exists: boolean; url: string }> {
 		const exists = await this.articleService.isUrlAlreadySaved(req.user.id, url);
 		return { exists, url };
 	}

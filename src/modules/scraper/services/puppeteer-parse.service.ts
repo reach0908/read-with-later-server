@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { BrowserContext, Page, Protocol } from 'puppeteer-core';
 import { BrowserService } from './browser.service';
 import { FetchContentInput } from '../dto/fetch-content.input';
@@ -43,15 +43,13 @@ export class PuppeteerParseService {
 	constructor(
 		private readonly browserService: BrowserService,
 		private readonly preHandlerService: PreHandlerService,
-		@Optional() private readonly articleService?: ArticleService,
+		private readonly articleService: ArticleService,
 	) {}
 
 	/**
 	 * Fetch readable content from the given URL.
 	 */
 	async fetchContent({ url, locale, timezone }: FetchContentInput): Promise<ScrapedContentOutput> {
-		const startedAt = Date.now();
-
 		url = this.normalizeUrl(url);
 
 		// (1) Execute pre-handling using the new extensible service
@@ -60,22 +58,33 @@ export class PuppeteerParseService {
 		let { title, content, contentType } = preHandleResult;
 		url = preHandleResult.url; // URL might have been changed by a handler
 
+		// Log pre-handling results
+		if (content) {
+			this.logger.log(`Pre-handler extracted content (${content.length} chars) from: ${url}`);
+		}
+		if (title) {
+			this.logger.log(`Pre-handler extracted title: ${title}`);
+		}
+
 		// (2) Fetch via Puppeteer when necessary
 		if (contentType !== 'application/pdf' && (!title || !content)) {
+			this.logger.debug(`Puppeteer fallback required for: ${url}`);
 			const pageResult = await this.retrievePage({ url, locale, timezone });
 			url = pageResult.finalUrl;
 			contentType = pageResult.contentType;
 
 			if (pageResult.page) {
 				const html = await this.retrieveHtml(pageResult.page);
-				title = html.title;
-				content = html.content;
+				// 사전 처리에서 이미 타이틀이 있다면 유지, 없다면 HTML에서 추출
+				title = title || html.title;
+				content = content || html.content;
 			}
 
 			await pageResult.context?.close();
+		} else if (content) {
+			this.logger.log(`Using pre-processed content, skipping Puppeteer for: ${url}`);
 		}
 
-		this.logger.debug(`Scraping done in ${Date.now() - startedAt} ms`);
 		return { finalUrl: url, title, content, contentType };
 	}
 
@@ -88,15 +97,14 @@ export class PuppeteerParseService {
 		// 일반 스크래핑 수행
 		const scrapedContent = await this.fetchContent(fetchInput);
 
-		// 데이터베이스 저장 옵션이 활성화되고 ArticleService가 사용 가능한 경우
-		if (saveToDatabase && userId && this.articleService) {
+		// 데이터베이스 저장 옵션이 활성화된 경우
+		if (saveToDatabase && userId) {
 			try {
 				await this.articleService.saveScrapedContent(userId, scrapedContent, {
 					tags,
 					isBookmarked,
 					isArchived,
 				});
-				this.logger.debug(`Content saved to database for user ${userId}: ${scrapedContent.finalUrl}`);
 			} catch (error) {
 				this.logger.warn(`Failed to save content to database: ${(error as Error).message}`);
 				// 저장 실패해도 스크래핑 결과는 반환
@@ -175,6 +183,9 @@ export class PuppeteerParseService {
 	}
 
 	private async setupNetworkInterception(page: Page): Promise<void> {
+		// Request interception 활성화 (page-level)
+		await page.setRequestInterception(true);
+
 		const client = await page.createCDPSession();
 
 		// PDF / MIME type blocking

@@ -225,8 +225,6 @@ export class NewsSiteHandler implements IContentHandler {
 			const transform = NEWS_SITE_TRANSFORMATIONS[domain];
 			const newUrl = transform(url);
 
-			this.logger.debug(`Transformed news site URL [${domain}]: ${url.href} -> ${newUrl.href}`);
-
 			// Extract potential title from URL
 			let title: string | undefined;
 			const siteName = this.getSiteName(domain);

@@ -44,16 +44,21 @@ async function bootstrap() {
 					type: 'http',
 					scheme: 'bearer',
 					bearerFormat: 'JWT',
-					description: 'Input your JWT token',
+					description: 'Enter JWT token (without "Bearer" prefix)',
 					name: 'Authorization',
 					in: 'header',
 				},
 				'access-token',
 			)
+			.addSecurityRequirements('access-token')
 			.build();
 
 		const document = SwaggerModule.createDocument(app, config);
-		SwaggerModule.setup('api', app, document);
+		SwaggerModule.setup('api', app, document, {
+			swaggerOptions: {
+				persistAuthorization: true, // 브라우저 새로고침 시에도 토큰 유지
+			},
+		});
 	}
 
 	await app.listen(process.env.PORT ?? 4000);

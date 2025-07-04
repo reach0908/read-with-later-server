@@ -38,7 +38,6 @@ export class ReadabilityHandler implements IContentHandler {
 			const article = reader.parse();
 
 			if (!article?.content) {
-				this.logger.debug(`Readability could not find content for: ${url.href}`);
 				return null;
 			}
 

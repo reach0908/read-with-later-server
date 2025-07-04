@@ -2,8 +2,6 @@ import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import puppeteer from 'puppeteer-extra';
 import { Browser } from 'puppeteer-core';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 
 @Injectable()
 export class BrowserService implements OnApplicationShutdown {
@@ -11,9 +9,55 @@ export class BrowserService implements OnApplicationShutdown {
 	private browser: Browser | null = null;
 
 	constructor(private readonly configService: ConfigService) {
-		// 플러그인은 Chrome 전용이므로 생성자에서 한 번만 등록
-		puppeteer.use(StealthPlugin());
-		puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+		this.initializePlugins();
+	}
+
+	/**
+	 * 플러그인을 안전하게 초기화합니다.
+	 */
+	private initializePlugins(): void {
+		try {
+			// 동적 임포트를 사용한 안전한 플러그인 로딩
+			const usePlugins = this.configService.get<boolean>('USE_BROWSER_PLUGINS', false);
+
+			if (usePlugins) {
+				this.loadPluginsSafely();
+			} else {
+				this.logger.log('Browser plugins disabled by configuration');
+			}
+		} catch (error) {
+			this.logger.warn('Failed to initialize browser plugins, running without plugins:', error);
+		}
+	}
+
+	/**
+	 * 플러그인을 안전하게 로드합니다.
+	 */
+	/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports */
+	private loadPluginsSafely(): void {
+		try {
+			const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+			const AdblockerPlugin = require('puppeteer-extra-plugin-adblocker');
+
+			// 플러그인이 함수인지 확인
+			if (typeof StealthPlugin === 'function') {
+				puppeteer.use(StealthPlugin());
+				this.logger.log('StealthPlugin loaded successfully');
+			} else if (StealthPlugin?.default && typeof StealthPlugin.default === 'function') {
+				puppeteer.use(StealthPlugin.default());
+				this.logger.log('StealthPlugin loaded successfully (default export)');
+			}
+
+			if (typeof AdblockerPlugin === 'function') {
+				puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+				this.logger.log('AdblockerPlugin loaded successfully');
+			} else if (AdblockerPlugin?.default && typeof AdblockerPlugin.default === 'function') {
+				puppeteer.use(AdblockerPlugin.default({ blockTrackers: true }));
+				this.logger.log('AdblockerPlugin loaded successfully (default export)');
+			}
+		} catch (error) {
+			this.logger.warn('Failed to load browser plugins:', error);
+		}
 	}
 
 	/**
@@ -49,6 +93,10 @@ export class BrowserService implements OnApplicationShutdown {
 				'--disable-background-networking',
 				'--disable-gpu',
 				'--disable-software-rasterizer',
+				// 동시성 제한 추가
+				'--max-web-media-player-count=1',
+				'--disable-features=TranslateUI',
+				'--disable-ipc-flooding-protection',
 			],
 			defaultViewport: {
 				deviceScaleFactor: 1,

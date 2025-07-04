@@ -1,6 +1,19 @@
-import { Controller, Post, Body, Get, Query, BadRequestException, Res, Header } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+import {
+	Controller,
+	Post,
+	Body,
+	Get,
+	Query,
+	BadRequestException,
+	Res,
+	Header,
+	UseGuards,
+	Request,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/common/guards/jwt.guard';
 import { Response } from 'express';
+import { AuthRequest } from 'src/types';
 import { PuppeteerParseService, FetchContentWithSaveInput } from './services/puppeteer-parse.service';
 import { FetchContentInput } from './dto/fetch-content.input';
 import { ScrapedContentOutput } from './dto/scraped-content.output';
@@ -53,6 +66,8 @@ export class ScraperController {
 	 * 웹 콘텐츠 스크래핑 및 저장 (인증 필요)
 	 */
 	@Post('save-content')
+	@UseGuards(JwtAuthGuard)
+	@ApiBearerAuth('access-token')
 	@ApiOperation({
 		summary: '웹 콘텐츠 스크래핑 및 저장',
 		description: '웹 콘텐츠를 스크래핑하고 사용자 계정에 저장합니다. 인증이 필요합니다.',
@@ -97,13 +112,16 @@ export class ScraperController {
 		status: 500,
 		description: '서버 오류',
 	})
-	async saveContent(@Body() input: Record<string, any>): Promise<ScrapedContentOutput & { saved: boolean }> {
+	async saveContent(
+		@Request() req: AuthRequest,
+		@Body() input: Record<string, any>,
+	): Promise<ScrapedContentOutput & { saved: boolean }> {
 		// URL 필수 필드 검증
 		if (!input.url) {
 			throw new BadRequestException('URL is required');
 		}
 
-		// 간단한 구현: 인증 없이도 동작하도록 함
+		// 인증된 사용자 정보 사용
 		const fetchInput: FetchContentWithSaveInput = {
 			url: input.url as string,
 			locale: input.locale as string | undefined,
@@ -111,11 +129,12 @@ export class ScraperController {
 			tags: input.tags as string[] | undefined,
 			isBookmarked: input.isBookmarked as boolean | undefined,
 			isArchived: input.isArchived as boolean | undefined,
-			saveToDatabase: false, // 인증 구현 전까지는 저장 비활성화
+			saveToDatabase: true, // 저장 활성화
+			userId: req.user.id, // 인증된 사용자 ID 사용
 		};
 
 		const result = await this.puppeteerParseService.fetchContentWithSave(fetchInput);
-		return { ...result, saved: false };
+		return { ...result, saved: true };
 	}
 
 	/**

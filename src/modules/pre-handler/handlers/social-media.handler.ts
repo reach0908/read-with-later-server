@@ -160,8 +160,6 @@ export class SocialMediaHandler implements IContentHandler {
 			const transform = SOCIAL_MEDIA_TRANSFORMATIONS[domain];
 			const newUrl = transform(url);
 
-			this.logger.debug(`Transformed social media URL [${domain}]: ${url.href} -> ${newUrl.href}`);
-
 			// Extract potential title from URL
 			let title: string | undefined;
 			const platform = this.getPlatformName(domain);

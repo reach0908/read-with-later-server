@@ -46,8 +46,6 @@ export class RssHandler implements IContentHandler {
 	 */
 	public handle(url: URL): Promise<PreHandleResult | null> {
 		try {
-			this.logger.debug(`Detected RSS/Atom feed: ${url.href}`);
-
 			// Try to extract title from URL or domain
 			let title: string | undefined;
 

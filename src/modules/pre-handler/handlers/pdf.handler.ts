@@ -37,7 +37,6 @@ export class PdfHandler implements IContentHandler {
 		try {
 			// For PDF files, we don't extract content here but mark the content type
 			// The main service will handle PDF extraction using appropriate tools
-			this.logger.debug(`Detected PDF file: ${url.href}`);
 
 			// Try to extract title from URL path
 			let title: string | undefined;

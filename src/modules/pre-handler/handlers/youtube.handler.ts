@@ -45,8 +45,6 @@ export class YoutubeHandler implements IContentHandler {
 				return Promise.resolve(null);
 			}
 
-			this.logger.debug(`Processing YouTube video: ${videoId}`);
-
 			// For now, we'll return basic information
 			// In a full implementation, you might want to:
 			// 1. Fetch video metadata from YouTube API

@@ -104,9 +104,7 @@ export class TokenService {
 
 			await this.removeRefreshToken(refreshToken);
 			return await this.generateTokenPair(user);
-		} catch (error: unknown) {
-			// 디버깅을 위한 로그만 남기고, 클라이언트에는 일관된 메시지 반환
-			this.logger.debug('Token refresh failed', error);
+		} catch {
 			throw new UnauthorizedException('Invalid refresh token');
 		}
 	}
@@ -124,16 +122,13 @@ export class TokenService {
 				tx,
 			);
 		});
-		this.logger.debug(`RefreshToken 저장: ${userId}`);
 	}
 
 	async removeRefreshToken(token: string): Promise<void> {
 		await this.refreshTokenRepository.deleteMany({ where: { token } });
-		this.logger.debug(`RefreshToken 삭제: ${token}`);
 	}
 
 	async logout(userId: string): Promise<void> {
 		await this.refreshTokenRepository.deleteMany({ where: { userId } });
-		this.logger.debug(`모든 RefreshToken 삭제(로그아웃): ${userId}`);
 	}
 }
