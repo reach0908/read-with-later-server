@@ -24,6 +24,7 @@ model User {
   updatedAt  DateTime @updatedAt
 
   refreshTokens RefreshToken[]
+  articles      Article[]
 
   @@unique([provider, providerId])
 }
@@ -41,4 +42,32 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+}
+
+model Article {
+  id          String   @id @default(uuid())
+  url         String   // 원본 URL
+  finalUrl    String   // 최종 URL (리디렉션 후)
+  title       String?  // 추출된 제목
+  content     String?  // 스크래핑된 콘텐츠 (HTML)
+  contentType String?  // MIME 타입
+  summary     String?  // 요약 (선택적)
+  author      String?  // 저자 (선택적)
+  publishedAt DateTime? // 발행일 (선택적)
+  wordCount   Int?     // 단어 수
+  readingTime Int?     // 예상 읽기 시간 (분)
+  tags        String[] // 태그 배열
+  isBookmarked Boolean @default(false) // 북마크 여부
+  isArchived  Boolean @default(false) // 아카이브 여부
+  userId      String   // 사용자 ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([url, userId]) // 사용자별 URL 중복 방지
+  @@index([userId])
+  @@index([userId, isBookmarked])
+  @@index([userId, isArchived])
+  @@index([createdAt])
 }

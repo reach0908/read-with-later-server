@@ -27,6 +27,7 @@
 		"prisma:studio": "prisma studio"
 	},
 	"dependencies": {
+		"@mozilla/readability": "^0.6.0",
 		"@nestjs/common": "^11.0.1",
 		"@nestjs/config": "^4.0.2",
 		"@nestjs/core": "^11.0.1",
@@ -40,6 +41,7 @@
 		"class-validator": "^0.14.2",
 		"cookie-parser": "^1.4.7",
 		"helmet": "^8.1.0",
+		"jsdom": "^26.1.0",
 		"passport": "^0.7.0",
 		"passport-google-oauth20": "^2.0.0",
 		"puppeteer-core": "^24.11.2",
@@ -62,6 +64,7 @@
 		"@types/cookie-parser": "^1.4.9",
 		"@types/express": "^5.0.0",
 		"@types/jest": "^29.5.14",
+		"@types/jsdom": "^21.1.7",
 		"@types/node": "^22.10.7",
 		"@types/passport-google-oauth20": "^2.0.16",
 		"@types/supertest": "^6.0.2",

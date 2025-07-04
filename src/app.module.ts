@@ -12,6 +12,8 @@ import throttlerConfig from 'src/config/throttler.config';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from 'src/modules/auth/auth.module';
 import { DatabaseModule } from 'src/database/database.module';
+import { ScraperModule } from 'src/modules/scraper/scraper.module';
+import { ArticleModule } from 'src/modules/article/article.module';
 import { HealthController } from 'src/health.controller';
 
 @Module({
@@ -34,6 +36,8 @@ import { HealthController } from 'src/health.controller';
 		DatabaseModule,
 		// Modules
 		AuthModule,
+		ScraperModule,
+		ArticleModule,
 	],
 	controllers: [HealthController],
 	providers: [
