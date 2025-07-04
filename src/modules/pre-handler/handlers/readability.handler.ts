@@ -32,14 +32,22 @@ export class ReadabilityHandler implements IContentHandler {
 		try {
 			const dom = await JSDOM.fromURL(url.href, {
 				userAgent: this.USER_AGENT,
+				resources: 'usable',
+				runScripts: 'dangerously',
+				pretendToBeVisual: true,
 			});
+
+			await new Promise((resolve) => setTimeout(resolve, 2000));
 
 			const reader = new Readability(dom.window.document);
 			const article = reader.parse();
 
 			if (!article?.content) {
+				this.logger.debug(`No readable content found for ${url.href}`);
 				return null;
 			}
+
+			this.logger.log(`Successfully extracted readable content: ${article.content.length} chars`);
 
 			return {
 				url: url.href,

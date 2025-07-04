@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BrowserContext, Page, Protocol } from 'puppeteer-core';
+import { JSDOM } from 'jsdom';
+import { Readability } from '@mozilla/readability';
 import { BrowserService } from './browser.service';
 import { FetchContentInput } from '../dto/fetch-content.input';
 import { ScrapedContentOutput } from '../dto/scraped-content.output';
@@ -77,7 +79,11 @@ export class PuppeteerParseService {
 				const html = await this.retrieveHtml(pageResult.page);
 				// 사전 처리에서 이미 타이틀이 있다면 유지, 없다면 HTML에서 추출
 				title = title || html.title;
-				content = content || html.content;
+
+				// 🔧 해결: HTML 콘텐츠에 Readability 적용하여 불필요한 정보 제거
+				if (html.content) {
+					content = await this.applyReadabilityToHtml(html.content, url);
+				}
 			}
 
 			await pageResult.context?.close();
@@ -290,5 +296,31 @@ export class PuppeteerParseService {
 				}, 10);
 			});
 		});
+	}
+
+	/**
+	 * HTML 콘텐츠에 Readability를 적용하여 본문만 추출합니다.
+	 * @param html - 전체 HTML 콘텐츠
+	 * @param url - 원본 URL (상대 링크 처리용)
+	 * @returns 정제된 콘텐츠 또는 원본 HTML (실패 시)
+	 */
+	private async applyReadabilityToHtml(html: string, url: string): Promise<string> {
+		try {
+			const dom = new JSDOM(html, { url });
+			const reader = new Readability(dom.window.document);
+			const article = reader.parse();
+
+			if (article?.content) {
+				this.logger.log(`Successfully extracted readable content from HTML (${article.content.length} chars)`);
+				return article.content;
+			} else {
+				this.logger.warn(`Readability failed to extract content from HTML, using original`);
+			}
+		} catch (error) {
+			this.logger.warn(`Failed to apply Readability to HTML: ${(error as Error).message}`);
+		}
+
+		// 실패 시 원본 반환
+		return html;
 	}
 }
