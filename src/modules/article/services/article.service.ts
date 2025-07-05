@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Article } from '@prisma/client';
 import { ArticleRepository } from '../repositories/article.repository';
 import { CreateArticleInput } from '../dto/create-article.input';
 import { UpdateArticleInput } from '../dto/update-article.input';
@@ -188,19 +189,19 @@ export class ArticleService {
 	/**
 	 * Article 엔티티를 ArticleOutput DTO로 변환합니다.
 	 */
-	private mapToOutput(article: any): ArticleOutput {
+	private mapToOutput(article: Article & { user?: { id: string; email: string; name: string } }): ArticleOutput {
 		return {
 			id: article.id,
 			url: article.url,
 			finalUrl: article.finalUrl,
-			title: article.title,
-			content: article.content,
-			contentType: article.contentType,
-			summary: article.summary,
-			author: article.author,
-			publishedAt: article.publishedAt,
-			wordCount: article.wordCount,
-			readingTime: article.readingTime,
+			title: article.title ?? undefined,
+			content: article.content ?? undefined,
+			contentType: article.contentType ?? undefined,
+			summary: article.summary ?? undefined,
+			author: article.author ?? undefined,
+			publishedAt: article.publishedAt ?? undefined,
+			wordCount: article.wordCount ?? undefined,
+			readingTime: article.readingTime ?? undefined,
 			tags: article.tags,
 			isBookmarked: article.isBookmarked,
 			isArchived: article.isArchived,
