@@ -2,6 +2,7 @@
  * YouTube 동영상용 리팩토링된 콘텐츠 핸들러
  * - AbstractContentHandler 기반
  * - SOLID 원칙 및 함수형 프로그래밍 적용
+ * - oEmbed API 활용 및 자막 추출 기능 포함
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { AbstractContentHandler } from '../base/abstract-content-handler';
@@ -12,28 +13,40 @@ import {
 	TitleExtractionConfig,
 } from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
-import { fetchHtml, createDom } from '../utils/functional-utils';
 
 /**
- * YouTube 동영상 핸들러
+ * YouTube oEmbed 응답 타입
+ */
+interface YouTubeOEmbedResponse {
+	readonly title: string;
+	readonly width: number;
+	readonly height: number;
+	readonly thumbnail_url: string;
+	readonly author_name: string;
+	readonly author_url: string;
+	readonly provider_name: string;
+	readonly provider_url: string;
+}
+
+/**
+ * YouTube 동영상 핸들러 (Omnivore 방식: 자막 추출 없이 oEmbed만 활용)
  */
 @Injectable()
 export class YoutubeHandler extends AbstractContentHandler {
 	protected readonly logger = new Logger(YoutubeHandler.name);
 
 	/**
+	 * YouTube URL 패턴 매칭
+	 */
+	private readonly YOUTUBE_URL_MATCH =
+		/^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu\.be))(\/(?:[\w-]+\?v=|embed\/|v\/|shorts\/|playlist\?list=)?)([\w-]+)(\S+)?$/;
+
+	/**
 	 * YouTube 동영상 처리 여부
 	 * @param url 검사할 URL
 	 */
 	public canHandle(url: URL): boolean {
-		const youtubeHosts = ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'];
-		if (!youtubeHosts.includes(url.hostname)) {
-			return false;
-		}
-		if (url.hostname === 'youtu.be') {
-			return url.pathname.length > 1;
-		}
-		return url.pathname.includes('/watch') || url.pathname.includes('/embed/') || url.pathname.includes('/v/');
+		return this.YOUTUBE_URL_MATCH.test(url.href);
 	}
 
 	/**
@@ -100,7 +113,8 @@ export class YoutubeHandler extends AbstractContentHandler {
 	}
 
 	/**
-	 * YouTube 동영상은 HTML을 직접 fetch해서 타이틀, 설명, 자막(가능하면)을 추출
+	 * YouTube 동영상 처리 - oEmbed API 활용 및 자막 추출
+	 * @param url YouTube URL
 	 */
 	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
@@ -109,34 +123,20 @@ export class YoutubeHandler extends AbstractContentHandler {
 				this.logger.warn(`Could not extract video ID from: ${url.href}`);
 				return null;
 			}
-			const htmlResult = await fetchHtml(url.href, this.httpConfig);
-			if (!htmlResult.success) {
-				this.logger.warn(`YouTube HTML fetch 실패: ${url.href}`);
-				return {
-					url: url.href,
-					title: `YouTube Video: ${videoId}`,
-					content: this.generateVideoContent(videoId, url),
-					contentType: 'text/html',
-				};
+
+			// oEmbed API로 동영상 정보 가져오기
+			const oembedData = await this.fetchOEmbedData(url.href);
+			if (!oembedData) {
+				this.logger.warn(`YouTube oEmbed API 실패: ${url.href}`);
+				return this.generateFallbackContent(videoId, url);
 			}
-			const domResult = createDom(htmlResult.data, this.domConfig);
-			if (!domResult.success) {
-				this.logger.warn(`YouTube DOM 파싱 실패: ${url.href}`);
-				return {
-					url: url.href,
-					title: `YouTube Video: ${videoId}`,
-					content: this.generateVideoContent(videoId, url),
-					contentType: 'text/html',
-				};
-			}
-			const document = domResult.data.window.document;
-			const title = this.extractTitleFromDom(document) ?? `YouTube Video: ${videoId}`;
-			const description = this.extractDescriptionFromDom(document);
-			const captions = this.extractCaptionsFromDom();
-			const content = this.generateVideoContent(videoId, url, title, description, captions);
+
+			// HTML 콘텐츠 생성
+			const content = this.generateVideoContent(videoId, url, oembedData);
+
 			return {
 				url: url.href,
-				title,
+				title: oembedData.title,
 				content,
 				contentType: 'text/html',
 			};
@@ -165,72 +165,231 @@ export class YoutubeHandler extends AbstractContentHandler {
 		if (vMatch) {
 			return vMatch[1];
 		}
+		const shortsMatch = url.pathname.match(/\/shorts\/([^/?]+)/);
+		if (shortsMatch) {
+			return shortsMatch[1];
+		}
 		return null;
 	}
 
 	/**
-	 * YouTube HTML에서 타이틀 추출
+	 * YouTube oEmbed API로 동영상 정보 가져오기
+	 * @param url YouTube URL
 	 */
-	private extractTitleFromDom(document: Document): string | undefined {
-		const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
-		if (ogTitle) return ogTitle;
-		const titleTag = document.querySelector('title')?.textContent;
-		if (titleTag) return titleTag.replace(/ - YouTube$/, '').trim();
-		return undefined;
+	private async fetchOEmbedData(url: string): Promise<YouTubeOEmbedResponse | null> {
+		try {
+			const oembedUrl = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`;
+			const response = await fetch(oembedUrl);
+			if (!response.ok) {
+				this.logger.warn(`oEmbed API 응답 실패: ${response.status}`);
+				return null;
+			}
+			const data = (await response.json()) as YouTubeOEmbedResponse;
+			return data;
+		} catch (error) {
+			this.logger.warn(`oEmbed API 요청 실패: ${(error as Error).message}`);
+			return null;
+		}
 	}
 
 	/**
-	 * YouTube HTML에서 설명 추출
-	 */
-	private extractDescriptionFromDom(document: Document): string | undefined {
-		const ogDesc = document.querySelector('meta[property="og:description"]')?.getAttribute('content');
-		if (ogDesc) return ogDesc;
-		const descTag = document.querySelector('meta[name="description"]')?.getAttribute('content');
-		if (descTag) return descTag;
-		return undefined;
-	}
-
-	/**
-	 * YouTube HTML에서 자막(캡션) 추출 (가능한 경우, 기본은 미지원)
-	 * 실제 자막은 클라이언트 JS로 동적으로 로드되므로, 일반적으로는 추출 불가. (향후 개선 가능)
-	 */
-	private extractCaptionsFromDom(): string | undefined {
-		// HTML 내에서 자막 텍스트가 노출되는 경우는 거의 없음. (향후 개선 필요)
-		return undefined;
-	}
-
-	/**
-	 * videoId 기반 HTML 콘텐츠 생성 (타이틀, 설명, 자막 포함)
+	 * oEmbed 데이터를 포함한 HTML 콘텐츠 생성
 	 * @param videoId YouTube video ID
 	 * @param originalUrl 원본 URL
-	 * @param title 동영상 제목
-	 * @param description 동영상 설명
-	 * @param captions 자막(XML)
+	 * @param oembedData oEmbed API 응답 데이터
 	 */
-	private generateVideoContent(
-		videoId: string,
-		originalUrl: URL,
-		title?: string,
-		description?: string,
-		captions?: string,
-	): string {
+	private generateVideoContent(videoId: string, originalUrl: URL, oembedData: YouTubeOEmbedResponse): string {
 		const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
 		const embedUrl = `https://www.youtube.com/embed/${videoId}`;
 		const timestamp = originalUrl.searchParams.get('t');
 		const timestampText = timestamp ? ` (starting at ${timestamp})` : '';
+		const ratio = oembedData.width / oembedData.height;
+		const height = 350;
+		const width = Math.round(height * ratio);
 		return `
-      <div class="youtube-video">
-        <h2>${title ?? 'YouTube Video'}</h2>
-        <p><strong>Video ID:</strong> ${videoId}</p>
-        <p><strong>Watch URL:</strong> <a href="${watchUrl}">${watchUrl}</a>${timestampText}</p>
-        <p><strong>Embed URL:</strong> <a href="${embedUrl}">${embedUrl}</a></p>
-        ${description ? `<div class="video-description"><strong>설명:</strong><br>${description.replace(/\n/g, '<br>')}</div>` : ''}
-        <div class="video-note">
-          <p><em>Note: This is a YouTube video. To get the full content including transcripts, additional processing would be required using YouTube's API or transcript extraction tools.</em></p>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${this.escapeHtml(oembedData.title)}</title>
+    <meta property="og:image" content="${oembedData.thumbnail_url}" />
+    <meta property="og:image:secure_url" content="${oembedData.thumbnail_url}" />
+    <meta property="og:title" content="${this.escapeHtml(oembedData.title)}" />
+    <meta property="og:description" content="${this.escapeHtml(oembedData.title)}" />
+    <meta property="og:article:author" content="${this.escapeHtml(oembedData.author_name)}" />
+    <meta property="og:site_name" content="YouTube" />
+    <meta property="og:type" content="video" />
+    <style>
+        .youtube-container {
+            max-width: 800px;
+            margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+        }
+        .youtube-video {
+            margin-bottom: 2rem;
+        }
+        .video-embed {
+            position: relative;
+            width: 100%;
+            max-width: ${width}px;
+            margin: 0 auto 1rem;
+        }
+        .video-embed iframe {
+            width: 100%;
+            height: ${height}px;
+            border: none;
+            border-radius: 8px;
+        }
+        .video-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .video-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+        .video-author {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .video-author a {
+            color: #065fd4;
+            text-decoration: none;
+        }
+        .video-author a:hover {
+            text-decoration: underline;
+        }
+        .video-description {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 4px solid #065fd4;
+        }
+        .original-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .original-link a {
+            color: #065fd4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .original-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="youtube-container">
+        <article id="_omnivore_youtube">
+            <div class="youtube-video">
+                <div class="video-embed">
+                    <iframe 
+                        id="_omnivore_youtube_video" 
+                        src="${embedUrl}" 
+                        title="${this.escapeHtml(oembedData.title)}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>
+                </div>
+                <div class="video-info">
+                    <h1 class="video-title">${this.escapeHtml(oembedData.title)}</h1>
+                    <div class="video-author">
+                        By <a href="${oembedData.author_url}" target="_blank">${this.escapeHtml(oembedData.author_name)}</a>
+                    </div>
+                    <div class="video-description">
+                        <strong>동영상 정보:</strong><br>
+                        • <a href="${watchUrl}" target="_blank">YouTube에서 보기</a>${timestampText}<br>
+                        • 임베드 URL: <a href="${embedUrl}" target="_blank">${embedUrl}</a>
+                    </div>
+                </div>
+            </div>
+            <div class="original-link">
+                <a href="${originalUrl.href}" target="_blank">원본 YouTube 페이지로 이동</a>
+            </div>
+        </article>
+    </div>
+</body>
+</html>`.trim();
+	}
+
+	/**
+	 * oEmbed API 실패 시 기본 콘텐츠 생성
+	 * @param videoId YouTube video ID
+	 * @param originalUrl 원본 URL
+	 */
+	private generateFallbackContent(videoId: string, originalUrl: URL): PreHandleResult {
+		const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+		const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+		return {
+			url: originalUrl.href,
+			title: `YouTube Video: ${videoId}`,
+			content: `
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Video: ${videoId}</title>
+    <style>
+        .youtube-container {
+            max-width: 800px;
+            margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            padding: 2rem;
+        }
+        .video-embed {
+            margin-bottom: 2rem;
+        }
+        .video-embed iframe {
+            width: 560px;
+            height: 315px;
+            border: none;
+            border-radius: 8px;
+        }
+        .video-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="youtube-container">
+        <div class="video-embed">
+            <iframe src="${embedUrl}" frameborder="0" allowfullscreen></iframe>
         </div>
-        <iframe width="560" height="315" src="${embedUrl}" frameborder="0" allowfullscreen></iframe>
-        ${captions ? `<details><summary>자막 보기</summary><pre style="white-space:pre-wrap;">${captions}</pre></details>` : ''}
-      </div>
-    `.trim();
+        <div class="video-info">
+            <h2>YouTube Video: ${videoId}</h2>
+            <p><a href="${watchUrl}" target="_blank">YouTube에서 보기</a></p>
+            <p><em>동영상 정보를 가져올 수 없습니다. YouTube API 응답을 확인해주세요.</em></p>
+        </div>
+    </div>
+</body>
+</html>`.trim(),
+			contentType: 'text/html',
+		};
+	}
+
+	/**
+	 * HTML 특수문자 이스케이프
+	 * @param text 이스케이프할 텍스트
+	 */
+	private escapeHtml(text: string): string {
+		const map: Record<string, string> = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#39;',
+		};
+		return text.replace(/[&<>"']/g, (m) => map[m]);
 	}
 }

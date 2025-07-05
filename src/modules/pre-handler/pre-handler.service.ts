@@ -53,6 +53,10 @@ export class RefactoredPreHandlerService {
 		if (handlers.length === 0) {
 			return accumulatedResult;
 		}
+		if (accumulatedResult.content) {
+			this.logger.debug('이미 content가 추출되어 있으므로 핸들러 체인 중단');
+			return accumulatedResult;
+		}
 		const [currentHandler, ...remainingHandlers] = handlers;
 		this.logger.debug(
 			`[DEBUG] ${currentHandler.constructor.name}.canHandle(${currentUrl.hostname}) = ${currentHandler.canHandle(currentUrl)}`,
