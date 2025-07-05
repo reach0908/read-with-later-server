@@ -1,6 +1,7 @@
 import { LoggingInterceptor } from '../logging.interceptor';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
+import { Request } from 'express';
 
 describe('LoggingInterceptor', () => {
 	let interceptor: LoggingInterceptor;
@@ -114,9 +115,13 @@ describe('LoggingInterceptor', () => {
 	});
 
 	it('getClientIp가 ip, connection, socket, unknown 모두 정상 반환', () => {
-		expect(interceptor['getClientIp']({ ip: '1.2.3.4' } as any)).toBe('1.2.3.4');
-		expect(interceptor['getClientIp']({ connection: { remoteAddress: '2.2.2.2' } } as any)).toBe('2.2.2.2');
-		expect(interceptor['getClientIp']({ socket: { remoteAddress: '3.3.3.3' } } as any)).toBe('3.3.3.3');
-		expect(interceptor['getClientIp']({} as any)).toBe('unknown');
+		expect(interceptor['getClientIp']({ ip: '1.2.3.4' } as Request)).toBe('1.2.3.4');
+		expect(interceptor['getClientIp']({ connection: { remoteAddress: '2.2.2.2' } } as unknown as Request)).toBe(
+			'2.2.2.2',
+		);
+		expect(interceptor['getClientIp']({ socket: { remoteAddress: '3.3.3.3' } } as unknown as Request)).toBe(
+			'3.3.3.3',
+		);
+		expect(interceptor['getClientIp']({} as Request)).toBe('unknown');
 	});
 });
