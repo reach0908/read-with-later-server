@@ -33,7 +33,7 @@ export class BrowserService implements OnApplicationShutdown {
 	/**
 	 * 플러그인을 안전하게 로드합니다.
 	 */
-	/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports */
+	/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-require-imports */
 	private loadPluginsSafely(): void {
 		try {
 			const StealthPlugin = require('puppeteer-extra-plugin-stealth');

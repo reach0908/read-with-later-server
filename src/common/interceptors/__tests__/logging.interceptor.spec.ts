@@ -59,7 +59,7 @@ describe('LoggingInterceptor', () => {
 		interceptor.intercept(mockContext as ExecutionContext, mockCallHandler as CallHandler).subscribe(() => {
 			setImmediate(() => {
 				expect(loggerSpy.log).toHaveBeenCalledWith('GET /test - 127.0.0.1');
-				expect(loggerSpy.log).toHaveBeenCalledWith('GET /test - 200');
+				expect(loggerSpy.log).toHaveBeenCalledWith(expect.stringMatching(/^GET \/test - 200 - [\d.]+ms$/));
 				done();
 			});
 		});
