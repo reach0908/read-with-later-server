@@ -23,6 +23,9 @@ export class RefactoredPreHandlerService {
 	 */
 	public async execute(urlString: string): Promise<PreHandleResult> {
 		const handlers = this.handlerFactory.getAllHandlers();
+		this.logger.debug(
+			'[DEBUG] Handler chain: ' + handlers.map((h) => (h ? h.constructor.name : 'undefined')).join(', '),
+		);
 		const currentUrl = new URL(urlString);
 		this.logger.debug(`리팩토링된 pre-handler 실행 시작: ${urlString}`);
 		const result = await this.executeHandlerChain(handlers, currentUrl, {
@@ -51,6 +54,9 @@ export class RefactoredPreHandlerService {
 			return accumulatedResult;
 		}
 		const [currentHandler, ...remainingHandlers] = handlers;
+		this.logger.debug(
+			`[DEBUG] ${currentHandler.constructor.name}.canHandle(${currentUrl.hostname}) = ${currentHandler.canHandle(currentUrl)}`,
+		);
 		if (!currentHandler.canHandle(currentUrl)) {
 			return this.executeHandlerChain(remainingHandlers, currentUrl, accumulatedResult);
 		}

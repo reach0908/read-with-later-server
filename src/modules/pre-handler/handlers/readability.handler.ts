@@ -128,24 +128,36 @@ export class ReadabilityHandler extends AbstractContentHandler {
 	 * 스크립트 활성화 JSDOM 생성
 	 */
 	private async createDOMWithScripts(url: string): Promise<JSDOM> {
-		return JSDOM.fromURL(url, {
+		const dom = await JSDOM.fromURL(url, {
 			userAgent: this.httpConfig.userAgent,
 			resources: 'usable',
 			runScripts: 'dangerously',
 			pretendToBeVisual: true,
 		});
+		this.removeAllScripts(dom.window.document);
+		return dom;
 	}
 
 	/**
 	 * 스크립트 비활성화 JSDOM 생성
 	 */
 	private async createDOMWithoutScripts(url: string): Promise<JSDOM> {
-		return JSDOM.fromURL(url, {
+		const dom = await JSDOM.fromURL(url, {
 			userAgent: this.httpConfig.userAgent,
 			resources: 'usable',
 			runScripts: 'outside-only',
 			pretendToBeVisual: true,
 		});
+		this.removeAllScripts(dom.window.document);
+		return dom;
+	}
+
+	/**
+	 * DOM에서 모든 <script> 태그를 제거합니다.
+	 * @param document - JSDOM의 document 객체
+	 */
+	private removeAllScripts(document: Document): void {
+		document.querySelectorAll('script').forEach((el) => el.remove());
 	}
 
 	/**
@@ -167,43 +179,38 @@ export class ReadabilityHandler extends AbstractContentHandler {
 	 * 브라우저 API polyfill 추가
 	 * @param window - JSDOM window 객체
 	 */
-	private addBrowserPolyfills(window: Window & typeof globalThis): void {
+	private addBrowserPolyfills(window: Window): void {
 		// document.elementFromPoint polyfill
-		if (!window.document.elementFromPoint) {
-			window.document.elementFromPoint = function (_x: number, _y: number): Element | null {
-				// 간단한 fallback 구현
+		if (typeof window.document.elementFromPoint !== 'function') {
+			window.document.elementFromPoint = function (): Element | null {
 				return window.document.body || window.document.documentElement;
 			};
 		}
 
 		// MessageChannel polyfill
-		if (!(window as any).MessageChannel) {
-			(window as any).MessageChannel = class MessageChannel {
-				port1: any;
-				port2: any;
-
-				constructor() {
-					this.port1 = {
-						postMessage: () => {},
-						onmessage: null,
-						close: () => {},
-					};
-					this.port2 = {
-						postMessage: () => {},
-						onmessage: null,
-						close: () => {},
-					};
-				}
-			};
+		if (typeof (window as unknown as { MessageChannel?: unknown }).MessageChannel === 'undefined') {
+			class MessageChannelPolyfill {
+				public readonly port1: unknown = {
+					postMessage: () => {},
+					onmessage: null,
+					close: () => {},
+				};
+				public readonly port2: unknown = {
+					postMessage: () => {},
+					onmessage: null,
+					close: () => {},
+				};
+			}
+			(window as unknown as { MessageChannel: typeof MessageChannelPolyfill }).MessageChannel =
+				MessageChannelPolyfill;
 		}
 
 		// requestIdleCallback polyfill
-		if (!(window as any).requestIdleCallback) {
-			(window as any).requestIdleCallback = function (
+		if (typeof (window as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === 'undefined') {
+			(window as unknown as { requestIdleCallback: typeof window.setTimeout }).requestIdleCallback = function (
 				callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void,
-				_options?: any,
-			) {
-				return setTimeout(() => {
+			): number {
+				return window.setTimeout(() => {
 					callback({
 						didTimeout: false,
 						timeRemaining: () => 50,
@@ -213,42 +220,44 @@ export class ReadabilityHandler extends AbstractContentHandler {
 		}
 
 		// cancelIdleCallback polyfill
-		if (!(window as any).cancelIdleCallback) {
-			(window as any).cancelIdleCallback = function (id: number) {
-				clearTimeout(id);
+		if (typeof (window as unknown as { cancelIdleCallback?: unknown }).cancelIdleCallback === 'undefined') {
+			(window as unknown as { cancelIdleCallback: (id: number) => void }).cancelIdleCallback = function (
+				id: number,
+			): void {
+				window.clearTimeout(id);
 			};
 		}
 
 		// IntersectionObserver polyfill (최소 구현)
-		if (!(window as any).IntersectionObserver) {
-			(window as any).IntersectionObserver = class IntersectionObserver {
-				constructor(_callback: any, _options?: any) {
-					// 최소 구현
-				}
-				observe() {}
-				unobserve() {}
-				disconnect() {}
-			};
+		if (typeof (window as unknown as { IntersectionObserver?: unknown }).IntersectionObserver === 'undefined') {
+			class IntersectionObserverPolyfill {
+				constructor() {}
+				observe(): void {}
+				unobserve(): void {}
+				disconnect(): void {}
+			}
+			(window as unknown as { IntersectionObserver: typeof IntersectionObserverPolyfill }).IntersectionObserver =
+				IntersectionObserverPolyfill;
 		}
 
 		// Performance API polyfill
-		if (!window.performance) {
-			(window as any).performance = {
+		if (typeof window.performance === 'undefined') {
+			(window as unknown as { performance: Performance }).performance = {
 				now: () => Date.now(),
 				timeOrigin: Date.now(),
-			};
+			} as Performance;
 		}
 
 		// crypto polyfill (기본 구현)
-		if (!window.crypto) {
-			(window as any).crypto = {
-				getRandomValues: (array: any) => {
+		if (typeof window.crypto === 'undefined') {
+			(window as unknown as { crypto: Crypto }).crypto = {
+				getRandomValues: (array: Uint8Array): Uint8Array => {
 					for (let i = 0; i < array.length; i++) {
 						array[i] = Math.floor(Math.random() * 256);
 					}
 					return array;
 				},
-			};
+			} as Crypto;
 		}
 	}
 
@@ -256,10 +265,8 @@ export class ReadabilityHandler extends AbstractContentHandler {
 	 * 에러 핸들링 추가
 	 * @param window - JSDOM window 객체
 	 */
-	private addErrorHandling(window: Window & typeof globalThis): void {
-		// 글로벌 에러 핸들러
+	private addErrorHandling(window: Window): void {
 		window.addEventListener('error', (event: ErrorEvent) => {
-			// 특정 에러는 무시
 			const ignoredErrors = [
 				'elementFromPoint is not a function',
 				'MessageChannel is not defined',
@@ -270,7 +277,10 @@ export class ReadabilityHandler extends AbstractContentHandler {
 				'ReferenceError: MessageChannel is not defined',
 			];
 
-			const errorMessage = event.error?.message || event.message || '';
+			const errorMessage =
+				typeof event.error === 'object' && event.error !== null && 'message' in event.error
+					? String((event.error as { message?: string }).message ?? '')
+					: String(event.message ?? '');
 			const shouldIgnore = ignoredErrors.some((ignoredError) =>
 				errorMessage.toLowerCase().includes(ignoredError.toLowerCase()),
 			);
@@ -279,22 +289,21 @@ export class ReadabilityHandler extends AbstractContentHandler {
 				this.logger.debug(`JavaScript error in JSDOM: ${errorMessage}`);
 			}
 
-			// 에러 전파 방지
 			event.preventDefault();
 		});
 
-		// Promise rejection 핸들러
 		window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
-			const reason = event.reason?.message || event.reason || '';
+			let reason = '';
+			if (typeof event.reason === 'object' && event.reason !== null && 'message' in event.reason) {
+				reason = String((event.reason as { message?: string }).message ?? '');
+			} else {
+				reason = String(event.reason ?? '');
+			}
 			const ignoredReasons = ['elementFromPoint', 'MessageChannel', 'clarity'];
-
 			const shouldIgnore = ignoredReasons.some((ignored) => reason.toLowerCase().includes(ignored.toLowerCase()));
-
 			if (!shouldIgnore) {
 				this.logger.debug(`Unhandled promise rejection in JSDOM: ${reason}`);
 			}
-
-			// 에러 전파 방지
 			event.preventDefault();
 		});
 	}

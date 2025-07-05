@@ -12,6 +12,7 @@ import {
 	TitleExtractionConfig,
 } from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
+import { extractTitleFromPath } from '../utils/functional-utils';
 
 /**
  * RSS/Atom 피드 핸들러
@@ -108,6 +109,8 @@ export class RssHandler extends AbstractContentHandler {
 
 	/**
 	 * RSS/Atom 피드는 본문 추출 없이 타입 마킹만 수행
+	 * @param url 처리할 URL
+	 * @returns PreHandleResult 또는 null
 	 */
 	public handle(url: URL): Promise<PreHandleResult | null> {
 		try {
@@ -120,10 +123,7 @@ export class RssHandler extends AbstractContentHandler {
 						lastPart.toLowerCase(),
 					)
 				) {
-					title = lastPart
-						.replace(/[-_]/g, ' ')
-						.replace(/\b\w/g, (l) => l.toUpperCase())
-						.trim();
+					title = extractTitleFromPath(lastPart);
 				}
 			}
 			if (!title) {

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RefactoredPreHandlerService } from './refactored-pre-handler.service';
+import { RefactoredPreHandlerService } from './pre-handler.service';
 import { ReadabilityHandler } from './handlers/readability.handler';
 import { HandlerFactory } from './factories/handler-factory';
 import { DomainSpecificHandler } from './handlers/domain-specific.handler';
@@ -10,6 +10,10 @@ import { SocialMediaHandler } from './handlers/social-media.handler';
 import { NewsSiteHandler } from './handlers/news-site.handler';
 import { StibeeHandler } from './handlers/stibee.handler';
 import { MailyHandler } from './handlers/maily.handler';
+import { TistoryHandler } from './handlers/tistory.handler';
+import { MediumHandler } from './handlers/medium.handler';
+import { NaverBlogHandler } from './handlers/naver-blog.handler';
+import { DisquietHandler } from './handlers/disquiet.handler';
 
 /**
  * Encapsulates all content pre-handling logic.
@@ -24,8 +28,9 @@ import { MailyHandler } from './handlers/maily.handler';
  * 5. NewsSiteHandler - Transforms news site URLs
  * 6. StibeeHandler - Extracts Stibee newsletter content
  * 7. MailyHandler - Extracts Maily newsletter content
- * 8. DomainSpecificHandler - Transforms URLs for other specific domains
- * 9. ReadabilityHandler - Fallback for general web content
+ * 8. TistoryHandler - Transforms Tistory URLs
+ * 9. DomainSpecificHandler - Transforms URLs for other specific domains
+ * 10. ReadabilityHandler - Fallback for general web content
  */
 @Module({
 	providers: [
@@ -38,6 +43,10 @@ import { MailyHandler } from './handlers/maily.handler';
 		NewsSiteHandler,
 		StibeeHandler,
 		MailyHandler,
+		TistoryHandler,
+		MediumHandler,
+		DisquietHandler,
+		NaverBlogHandler,
 		DomainSpecificHandler,
 		ReadabilityHandler,
 	],

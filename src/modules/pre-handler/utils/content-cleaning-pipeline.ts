@@ -213,3 +213,67 @@ export const createContentCleaningPipeline = (config: ContentCleaningConfig): Cl
 	if (config.cleanupText) stages.push(cleanupText);
 	return compose(...stages);
 };
+
+/**
+ * 공통 후처리: 이미지 src 최적화, picture->img 변환, data-* 특수 이미지 처리 등
+ * @param document JSDOM의 document 객체
+ * @param options 도메인별 옵션 (ex: baseUrl)
+ */
+export const postProcessDom = (document: Document, options?: { baseUrl?: string; domain?: string }): void => {
+	// picture -> img 변환 (Medium 등)
+	document.querySelectorAll('picture').forEach((picture) => {
+		const source = picture.querySelector('source');
+		if (source) {
+			const srcSet = source.getAttribute('srcSet');
+			if (srcSet) {
+				const sources = srcSet
+					.split(', ')
+					.map((src) => src.trim().split(' '))
+					.filter((parts) => parts.length >= 2)
+					.sort((a, b) => Number(b[1].replace('w', '')) - Number(a[1].replace('w', '')));
+				if (sources.length > 0 && sources[0].length > 0) {
+					const imageUrl = sources[0][0];
+					const img = document.createElement('img');
+					img.src = imageUrl;
+					const existingImg = picture.querySelector('img');
+					if (existingImg) {
+						if (existingImg.alt) img.alt = existingImg.alt;
+						if (existingImg.title) img.title = existingImg.title;
+					}
+					picture.parentNode?.replaceChild(img, picture);
+				}
+			}
+		}
+	});
+	// img src 최적화 (Tistory, Naver 등)
+	document.querySelectorAll('img').forEach((img) => {
+		let src = img.getAttribute('data-original') || img.getAttribute('data-src') || img.getAttribute('src');
+		if (src) {
+			if (src.startsWith('//')) {
+				src = 'https:' + src;
+			} else if (src.startsWith('/')) {
+				src = options?.baseUrl ? new URL(src, options.baseUrl).href : src;
+			}
+			img.setAttribute('src', src);
+			img.removeAttribute('data-src');
+			img.removeAttribute('data-original');
+			img.removeAttribute('loading');
+		}
+	});
+	// data-ke-src 특수 이미지 처리 (Naver)
+	document.querySelectorAll('[data-ke-src]').forEach((element) => {
+		const dataSrc = element.getAttribute('data-ke-src');
+		if (dataSrc) {
+			let optimizedSrc = dataSrc;
+			if (optimizedSrc.startsWith('//')) {
+				optimizedSrc = 'https:' + optimizedSrc;
+			} else if (optimizedSrc.startsWith('/')) {
+				optimizedSrc = options?.baseUrl ? new URL(optimizedSrc, options.baseUrl).href : optimizedSrc;
+			}
+			const img = document.createElement('img');
+			img.src = optimizedSrc;
+			img.alt = element.getAttribute('alt') || '';
+			element.parentNode?.replaceChild(img, element);
+		}
+	});
+};

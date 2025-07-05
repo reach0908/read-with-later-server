@@ -21,6 +21,30 @@ export type Result<T, E = Error> =
 export type Option<T> = T | null | undefined;
 
 /**
+ * 콘텐츠 추출 과정에서 발생하는 에러를 명확하게 구분하기 위한 커스텀 에러
+ */
+export class ContentExtractionError extends Error {
+	public readonly cause?: unknown;
+	constructor(message: string, cause?: unknown) {
+		super(message);
+		this.name = 'ContentExtractionError';
+		this.cause = cause;
+	}
+}
+
+/**
+ * 네트워크 요청 실패 등 외부 통신 관련 에러
+ */
+export class NetworkError extends Error {
+	public readonly cause?: unknown;
+	constructor(message: string, cause?: unknown) {
+		super(message);
+		this.name = 'NetworkError';
+		this.cause = cause;
+	}
+}
+
+/**
  * HTTP 요청을 통해 HTML 문자열을 가져옵니다.
  * @param url 요청할 URL
  * @param config HTTP 요청 설정
@@ -42,7 +66,7 @@ export const fetchHtml = async (url: string, config: HttpRequestConfig): Promise
 		if (!response.ok) {
 			return {
 				success: false,
-				error: new Error(`HTTP ${response.status}: ${response.statusText}`),
+				error: new NetworkError(`HTTP ${response.status}: ${response.statusText}`),
 			};
 		}
 
@@ -51,7 +75,7 @@ export const fetchHtml = async (url: string, config: HttpRequestConfig): Promise
 	} catch (error) {
 		return {
 			success: false,
-			error: error instanceof Error ? error : new Error(String(error)),
+			error: new NetworkError('Network request failed', error),
 		};
 	}
 };
@@ -100,7 +124,7 @@ export const createDom = (html: string, config: DomConfig): Result<JSDOM, Error>
 	} catch (error) {
 		return {
 			success: false,
-			error: error instanceof Error ? error : new Error(String(error)),
+			error: new ContentExtractionError('DOM creation failed', error),
 		};
 	}
 };
@@ -123,68 +147,9 @@ export const createDomFromUrl = async (url: string, config: DomConfig): Promise<
 	} catch (error) {
 		return {
 			success: false,
-			error: error instanceof Error ? error : new Error(String(error)),
+			error: new ContentExtractionError('DOM creation from URL failed', error),
 		};
 	}
-};
-
-/**
- * Result 타입을 변환하는 고차 함수
- * @param result 원본 Result
- * @param fn 변환 함수
- * @returns 변환된 Result
- */
-export const mapResult = <T, U, E>(result: Result<T, E>, fn: (data: T) => U): Result<U, E> => {
-	if (result.success) {
-		return { success: true, data: fn(result.data) };
-	}
-	return result;
-};
-
-/**
- * Result 타입의 에러를 변환하는 고차 함수
- * @param result 원본 Result
- * @param fn 에러 변환 함수
- * @returns 변환된 Result
- */
-export const mapError = <T, E, F>(result: Result<T, E>, fn: (error: E) => F): Result<T, F> => {
-	if (!result.success) {
-		return { success: false, error: fn(result.error) };
-	}
-	return result;
-};
-
-/**
- * Result 타입을 flatMap하는 고차 함수
- * @param result 원본 Result
- * @param fn 변환 함수
- * @returns 변환된 Result
- */
-export const flatMapResult = <T, U, E>(result: Result<T, E>, fn: (data: T) => Result<U, E>): Result<U, E> => {
-	if (result.success) {
-		return fn(result.data);
-	}
-	return result;
-};
-
-/**
- * Option 타입을 변환하는 고차 함수
- * @param option 원본 Option
- * @param fn 변환 함수
- * @returns 변환된 Option
- */
-export const mapOption = <T, U>(option: Option<T>, fn: (value: T) => U): Option<U> => {
-	return option != null ? fn(option) : null;
-};
-
-/**
- * Option 타입을 flatMap하는 고차 함수
- * @param option 원본 Option
- * @param fn 변환 함수
- * @returns 변환된 Option
- */
-export const flatMapOption = <T, U>(option: Option<T>, fn: (value: T) => Option<U>): Option<U> => {
-	return option != null ? fn(option) : null;
 };
 
 /**
@@ -215,40 +180,67 @@ export const extractTitle = (
  * 여러 셀렉터를 이용해 본문 콘텐츠 요소를 찾습니다.
  * @param document DOM 문서
  * @param selectors 셀렉터 목록
- * @param minTextLength 최소 텍스트 길이
+ * @param minTextLength 최소 텍스트 길이 (기본값 30)
+ * @param logger (선택) 로깅용
  * @returns 콘텐츠 요소 또는 null
  */
 export const findContentElement = (
 	document: Document,
 	selectors: readonly string[],
-	minTextLength: number = 100,
+	minTextLength: number = 30,
+	logger?: { debug?: (msg: string) => void },
 ): Option<Element> => {
+	let bestElement: Element | null = null;
+	let maxLength = 0;
 	for (const selector of selectors) {
 		const element = document.querySelector(selector);
-		if (element?.textContent && element.textContent.trim().length > minTextLength) {
-			return element;
+		if (element?.textContent) {
+			const len = element.textContent.trim().length;
+			if (len > maxLength) {
+				bestElement = element;
+				maxLength = len;
+			}
+			if (len >= minTextLength) {
+				logger?.debug?.(`[findContentElement] selector '${selector}' matched element with length ${len}`);
+			}
 		}
 	}
+	if (bestElement && maxLength >= minTextLength) {
+		return bestElement;
+	}
+	logger?.debug?.(
+		`[findContentElement] No selector matched element with length >= ${minTextLength}, fallback to body`,
+	);
 	return document.body || null;
 };
 
 /**
- * 여러 정제 함수를 순차적으로 적용하는 함수 합성
- * @param fns 정제 함수 목록
- * @returns 합성된 정제 함수
+ * 파일 경로나 URL 경로에서 타이틀을 추출하는 유틸 함수
+ * @param path 파일명 또는 URL 경로
+ * @param options 옵션 (확장자 제거 여부 등)
+ * @returns 추출된 타이틀 문자열
  */
-export const compose = <T>(...fns: ((arg: T, ctx: any) => T)[]): ((arg: T, ctx: any) => T) => {
-	return (element: T, context: any): T => {
-		return fns.reduce((acc, fn) => fn(acc, context), element);
-	};
+export const extractTitleFromPath = (path: string, options?: { removeExtension?: boolean }): string => {
+	let title =
+		path
+			.split('/')
+			.filter((part) => part.length > 0)
+			.pop() ?? '';
+	if (options?.removeExtension) {
+		title = title.replace(/\.[a-zA-Z0-9]+$/, '');
+	}
+	title = title
+		.replace(/[-_]/g, ' ')
+		.replace(/\b\w/g, (l) => l.toUpperCase())
+		.trim();
+	return title;
 };
 
 /**
- * 부분 적용 함수
- * @param fn 원본 함수
- * @param first 첫 번째 인자
- * @returns 두 번째 인자만 받는 함수
+ * 여러 함수를 합성하는 함수형 유틸
+ * @param fns 합성할 함수들
+ * @returns 합성된 함수
  */
-export const partial = <T, U, V>(fn: (a: T, b: U) => V, first: T): ((second: U) => V) => {
-	return (second: U) => fn(first, second);
-};
+export function compose<T>(...fns: Array<(arg: T, ...rest: any[]) => T>): (arg: T, ...rest: any[]) => T {
+	return (arg: T, ...rest: any[]) => fns.reduce((acc, fn) => fn(acc, ...rest), arg);
+}

@@ -6,8 +6,10 @@ import { BrowserService } from './browser.service';
 import { FetchContentInput } from '../dto/fetch-content.input';
 import { ScrapedContentOutput } from '../dto/scraped-content.output';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
-import { RefactoredPreHandlerService } from '../../pre-handler/refactored-pre-handler.service';
+import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
+import { ContentQualityEvaluator, ContentQualityMetrics } from './content-quality-evaluator';
+import sanitizeHtml from 'sanitize-html';
 
 // ---------------------- CONSTANTS ----------------------
 const NON_SCRIPT_HOSTS = ['medium.com', 'fastcompany.com', 'fortelabs.com'] as const;
@@ -46,6 +48,7 @@ export class PuppeteerParseService {
 		private readonly browserService: BrowserService,
 		private readonly preHandlerService: RefactoredPreHandlerService,
 		private readonly articleService: ArticleService,
+		private readonly contentQualityEvaluator: ContentQualityEvaluator,
 	) {}
 
 	/**
@@ -68,8 +71,17 @@ export class PuppeteerParseService {
 			this.logger.log(`Pre-handler extracted title: ${title}`);
 		}
 
-		// (2) Fetch via Puppeteer when necessary
-		if (contentType !== 'application/pdf' && (!title || !content)) {
+		// (2) 품질 평가 및 조건부 Puppeteer fallback
+		let quality: ContentQualityMetrics | undefined = undefined;
+		let usePuppeteer = false;
+		if (content) {
+			quality = this.contentQualityEvaluator.evaluate(content, content, {});
+			this.logger.log(
+				`Content quality: chars=${quality.characterCount}, paragraphs=${quality.paragraphCount}, linkDensity=${quality.linkDensity}, score=${quality.readabilityScore}, isProbablyReadable=${quality.isProbablyReadable}`,
+			);
+			usePuppeteer = !quality.isProbablyReadable;
+		}
+		if (contentType !== 'application/pdf' && (!content || usePuppeteer)) {
 			this.logger.debug(`Puppeteer fallback required for: ${url}`);
 			const pageResult = await this.retrievePage({ url, locale, timezone });
 			url = pageResult.finalUrl;
@@ -80,9 +92,65 @@ export class PuppeteerParseService {
 				// 사전 처리에서 이미 타이틀이 있다면 유지, 없다면 HTML에서 추출
 				title = title || html.title;
 
-				// 🔧 해결: HTML 콘텐츠에 Readability 적용하여 불필요한 정보 제거
-				if (html.content) {
-					content = await this.applyReadabilityToHtml(html.content, url);
+				// Disquiet.io 도메인에 대해 커스텀 추출
+				if (new URL(url).hostname.endsWith('disquiet.io')) {
+					const dom = new JSDOM(html.content, { url });
+					const document = dom.window.document;
+					// detail ~ maker-log-detail 구간만 추출
+					const detail = document.querySelector('.sc-keuYuY.detail-page');
+					let extracted = '';
+					if (detail) {
+						const makerLog = detail.querySelector('.sc-hBtRBD.maker-log-detail');
+						if (makerLog) {
+							extracted = makerLog.outerHTML;
+						} else {
+							extracted = detail.outerHTML;
+						}
+					}
+					// sanitize-html로 정제
+					const safeHtml = sanitizeHtml(extracted || html.content, {
+						allowedTags: [
+							'p',
+							'em',
+							'strong',
+							'b',
+							'i',
+							'u',
+							'a',
+							'img',
+							'ul',
+							'ol',
+							'li',
+							'blockquote',
+							'h1',
+							'h2',
+							'h3',
+							'h4',
+							'h5',
+							'h6',
+							'pre',
+							'code',
+							'span',
+							'div',
+							'br',
+						],
+						allowedAttributes: {
+							a: ['href', 'name', 'target', 'rel'],
+							img: ['src', 'alt', 'width', 'height', 'title', 'loading'],
+							div: ['class', 'style'],
+							span: ['class', 'style'],
+							'*': ['style'],
+						},
+						allowedSchemes: ['http', 'https', 'data'],
+						disallowedTagsMode: 'discard',
+						allowProtocolRelative: false,
+					});
+					content = safeHtml;
+				} else {
+					// Readability 적용 (기존)
+					if (html.content) {
+						content = await this.applyReadabilityToHtml(html.content, url);
+					}
 				}
 			}
 

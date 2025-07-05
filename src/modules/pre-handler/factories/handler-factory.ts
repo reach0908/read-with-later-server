@@ -11,7 +11,13 @@ import { PdfHandler } from '../handlers/pdf.handler';
 import { RssHandler } from '../handlers/rss.handler';
 import { YoutubeHandler } from '../handlers/youtube.handler';
 import { NewsSiteHandler } from '../handlers/news-site.handler';
+import { TistoryHandler } from '../handlers/tistory.handler';
+import { MediumHandler } from '../handlers/medium.handler';
+import { NaverBlogHandler } from '../handlers/naver-blog.handler';
+import { DomainSpecificHandler } from '../handlers/domain-specific.handler';
+import { SocialMediaHandler } from '../handlers/social-media.handler';
 import { ReadabilityHandler } from '../handlers/readability.handler';
+import { DisquietHandler } from '../handlers/disquiet.handler';
 // 필요시 다른 핸들러 import
 
 /**
@@ -28,16 +34,28 @@ export class HandlerFactory {
 		private readonly rssHandler: RssHandler,
 		private readonly youtubeHandler: YoutubeHandler,
 		private readonly newsSiteHandler: NewsSiteHandler,
+		private readonly tistoryHandler: TistoryHandler,
+		private readonly mediumHandler: MediumHandler,
+		private readonly disquietHandler: DisquietHandler,
+		private readonly naverBlogHandler: NaverBlogHandler,
+		private readonly domainSpecificHandler: DomainSpecificHandler,
+		private readonly socialMediaHandler: SocialMediaHandler,
 		private readonly readabilityHandler: ReadabilityHandler,
 		// 필요시 다른 핸들러 DI
 	) {
-		// 우선순위: 도메인 특화 → 일반 → fallback
+		// 우선순위: 도메인 특화 → 소셜/뉴스 → 일반 → fallback
 		this.handlerChain = [
 			this.mailyHandler,
 			this.stibeeHandler,
 			this.pdfHandler,
 			this.rssHandler,
 			this.youtubeHandler,
+			this.tistoryHandler,
+			this.naverBlogHandler,
+			this.mediumHandler,
+			this.disquietHandler,
+			this.domainSpecificHandler,
+			this.socialMediaHandler,
 			this.newsSiteHandler,
 			this.readabilityHandler, // 항상 마지막 fallback
 		];

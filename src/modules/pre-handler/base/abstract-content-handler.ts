@@ -96,7 +96,7 @@ export abstract class AbstractContentHandler implements IContentHandler {
 	 * @param url 처리할 URL
 	 * @returns 추출 결과 Result
 	 */
-	private async extractContent(url: URL): Promise<Result<ContentExtractionResult, Error>> {
+	protected async extractContent(url: URL): Promise<Result<ContentExtractionResult, Error>> {
 		const htmlResult = await fetchHtml(url.href, this.httpConfig);
 		if (!htmlResult.success) {
 			return { success: false, error: htmlResult.error };
@@ -105,7 +105,7 @@ export abstract class AbstractContentHandler implements IContentHandler {
 		if (!domResult.success) {
 			return { success: false, error: domResult.error };
 		}
-		return { success: true, data: this.processDom(domResult.data, url.href) };
+		return { success: true, data: await this.processDom(domResult.data, url.href) };
 	}
 
 	/**
@@ -114,8 +114,13 @@ export abstract class AbstractContentHandler implements IContentHandler {
 	 * @param url 기준 URL
 	 * @returns 추출 결과
 	 */
-	private processDom(dom: JSDOM, url: string): ContentExtractionResult {
+	private async processDom(dom: JSDOM, url: string): Promise<ContentExtractionResult> {
 		const document = dom.window.document;
+		// 동적 콘텐츠 대기 (waitForDynamicContent가 있으면 안전하게 호출)
+		const maybeWithWait = this as unknown as { waitForDynamicContent?: (doc: Document) => Promise<void> };
+		if (typeof maybeWithWait.waitForDynamicContent === 'function') {
+			await maybeWithWait.waitForDynamicContent(document);
+		}
 		// 제목 추출
 		const titleOption: Option<string> = extractTitle(
 			document,
@@ -123,9 +128,10 @@ export abstract class AbstractContentHandler implements IContentHandler {
 			this.titleConfig.patterns,
 		);
 		const title: string | undefined = titleOption == null ? undefined : titleOption;
-		// 콘텐츠 요소 찾기
-		const contentElement = findContentElement(document, this.contentSelectors);
+		// 콘텐츠 요소 찾기 (minTextLength 30, logger 전달)
+		const contentElement = findContentElement(document, this.contentSelectors, 30, this.logger);
 		if (!contentElement) {
+			this.logger.debug(`${this.handlerName} 본문 요소를 찾지 못해 body로 fallback`);
 			return { title, contentType: 'text/html', url };
 		}
 		// 콘텐츠 정제

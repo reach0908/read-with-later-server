@@ -12,6 +12,7 @@ import {
 	TitleExtractionConfig,
 } from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
+import { extractTitleFromPath } from '../utils/functional-utils';
 
 /**
  * PDF 파일 핸들러
@@ -97,18 +98,15 @@ export class PdfHandler extends AbstractContentHandler {
 
 	/**
 	 * PDF는 별도 본문 추출 없이 타입 마킹만 수행
+	 * @param url 처리할 URL
+	 * @returns PreHandleResult 또는 null
 	 */
 	public handle(url: URL): Promise<PreHandleResult | null> {
 		try {
 			let title: string | undefined;
-			const pathParts = url.pathname.split('/');
-			const filename = pathParts[pathParts.length - 1];
+			const filename = url.pathname.split('/').pop();
 			if (filename && filename.includes('.pdf')) {
-				title = filename
-					.replace(/\.pdf$/i, '')
-					.replace(/[-_]/g, ' ')
-					.replace(/\b\w/g, (l) => l.toUpperCase())
-					.trim();
+				title = extractTitleFromPath(filename, { removeExtension: true });
 			}
 			return Promise.resolve({
 				url: url.href,
