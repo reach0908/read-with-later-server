@@ -17,7 +17,7 @@ import { AuthRequest } from 'src/types';
 import { PuppeteerParseService, FetchContentWithSaveInput } from './services/puppeteer-parse.service';
 import { FetchContentInput } from './dto/fetch-content.input';
 import { ScrapedContentOutput } from './dto/scraped-content.output';
-import { PreHandlerService } from '../pre-handler/pre-handler.service';
+import { RefactoredPreHandlerService } from '../pre-handler/refactored-pre-handler.service';
 import { PreHandleResult } from '../pre-handler/dto/pre-handle-result.dto';
 
 @ApiTags('scraper')
@@ -25,7 +25,7 @@ import { PreHandleResult } from '../pre-handler/dto/pre-handle-result.dto';
 export class ScraperController {
 	constructor(
 		private readonly puppeteerParseService: PuppeteerParseService,
-		private readonly preHandlerService: PreHandlerService,
+		private readonly preHandlerService: RefactoredPreHandlerService,
 	) {}
 
 	/**

@@ -1,5 +1,16 @@
+/**
+ * 뉴스 사이트용 리팩토링된 콘텐츠 핸들러
+ * - AbstractContentHandler 기반
+ * - SOLID 원칙 및 함수형 프로그래밍 적용
+ */
 import { Injectable, Logger } from '@nestjs/common';
-import { IContentHandler } from '../interfaces/content-handler.interface';
+import { AbstractContentHandler } from '../base/abstract-content-handler';
+import {
+	HttpRequestConfig,
+	DomConfig,
+	ContentCleaningConfig,
+	TitleExtractionConfig,
+} from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
 
 /**
@@ -192,78 +203,106 @@ const NEWS_SITE_TRANSFORMATIONS: Record<string, (url: URL) => URL> = {
 };
 
 /**
- * A content handler specifically for news websites.
- * This handler detects news site URLs and transforms them to more
- * accessible versions, often bypassing paywalls or using cleaner layouts.
+ * 뉴스 사이트 핸들러
  */
 @Injectable()
-export class NewsSiteHandler implements IContentHandler {
-	private readonly logger = new Logger(NewsSiteHandler.name);
+export class NewsSiteHandler extends AbstractContentHandler {
+	protected readonly logger = new Logger(NewsSiteHandler.name);
 
 	/**
-	 * Checks if the URL is from a supported news website.
-	 * @param url - The URL to check.
-	 * @returns `true` if the URL is from a supported news website.
+	 * 뉴스 사이트 처리 여부
+	 * @param url 검사할 URL
 	 */
 	public canHandle(url: URL): boolean {
 		return Object.keys(NEWS_SITE_TRANSFORMATIONS).some((domain) => url.hostname.endsWith(domain));
 	}
 
 	/**
-	 * Processes news site URLs by transforming them to more accessible versions.
-	 * @param url - The news site URL to handle.
-	 * @returns A `PreHandleResult` with the transformed URL, or `null` on failure.
+	 * 핸들러 이름
 	 */
-	public handle(url: URL): Promise<PreHandleResult | null> {
-		const domain = Object.keys(NEWS_SITE_TRANSFORMATIONS).find((d) => url.hostname.endsWith(d));
+	protected get handlerName(): string {
+		return '뉴스사이트 핸들러';
+	}
 
-		if (!domain) {
-			return Promise.resolve(null);
-		}
+	/**
+	 * HTTP 요청 설정 (뉴스사이트는 표준 설정)
+	 */
+	protected get httpConfig(): HttpRequestConfig {
+		return {
+			userAgent: '',
+			timeout: 10000,
+			headers: {},
+			redirect: 'follow',
+		};
+	}
 
+	/**
+	 * DOM 생성 설정 (표준)
+	 */
+	protected get domConfig(): DomConfig {
+		return {
+			userAgent: '',
+			resources: 'usable',
+			runScripts: 'outside-only',
+			pretendToBeVisual: true,
+		};
+	}
+
+	/**
+	 * 콘텐츠 정제 설정 (뉴스사이트용)
+	 */
+	protected get cleaningConfig(): ContentCleaningConfig {
+		return {
+			removeUnwantedElements: true,
+			cleanupStyles: true,
+			cleanupLinks: true,
+			cleanupImages: true,
+			cleanupText: true,
+			refineTitle: true,
+		};
+	}
+
+	/**
+	 * 제목 추출 설정 (뉴스사이트용)
+	 */
+	protected get titleConfig(): TitleExtractionConfig {
+		return {
+			selectors: ['meta[property="og:title"]', 'title', 'h1'],
+			patterns: [/[-_][^\s]+/g],
+			siteSpecificPatterns: {},
+		};
+	}
+
+	/**
+	 * 본문 콘텐츠 추출용 셀렉터 (뉴스사이트용)
+	 */
+	protected get contentSelectors(): readonly string[] {
+		return ['article', 'main', '.article-body', '.content', '#article-body'];
+	}
+
+	/**
+	 * 뉴스사이트는 URL 변환 후 표준 추출 프로세스 사용
+	 */
+	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
-			const transform = NEWS_SITE_TRANSFORMATIONS[domain];
-			const newUrl = transform(url);
-
-			// Extract potential title from URL
-			let title: string | undefined;
-			const siteName = this.getSiteName(domain);
-
-			// Try to extract article title from URL path
-			const pathParts = url.pathname.split('/').filter((part) => part.length > 0);
-			if (pathParts.length > 0) {
-				// Look for article identifiers in the path
-				const lastPart = pathParts[pathParts.length - 1];
-				if (lastPart.includes('-') || lastPart.includes('_')) {
-					// Convert URL slug to title
-					title = lastPart
-						.replace(/[-_]/g, ' ')
-						.replace(/\.(html|htm|php|asp|aspx)$/i, '')
-						.replace(/\b\w/g, (l) => l.toUpperCase())
-						.trim();
-
-					if (title.length > 60) {
-						title = title.substring(0, 60) + '...';
-					}
-
-					title = `${siteName}: ${title}`;
-				}
-			}
-
-			// Fallback title
-			if (!title) {
-				title = `${siteName} Article`;
-			}
-
-			return Promise.resolve({
-				url: newUrl.href,
-				title,
-				contentType: 'text/html',
-			});
+			const transformedUrl = this.transformUrl(url);
+			return await super.handle(transformedUrl);
 		} catch (error) {
 			this.logger.warn(`NewsSiteHandler failed for ${url.href}: ${(error as Error).message}`);
-			return Promise.resolve(null);
+			return null;
 		}
+	}
+
+	/**
+	 * 도메인별 URL 변환
+	 * @param url 원본 URL
+	 */
+	private transformUrl(url: URL): URL {
+		const domain = Object.keys(NEWS_SITE_TRANSFORMATIONS).find((d) => url.hostname.endsWith(d));
+		if (domain) {
+			return NEWS_SITE_TRANSFORMATIONS[domain](url);
+		}
+		return url;
 	}
 
 	/**

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { PreHandlerService } from './pre-handler.service';
+import { RefactoredPreHandlerService } from './refactored-pre-handler.service';
 import { ReadabilityHandler } from './handlers/readability.handler';
-import { CONTENT_HANDLER_TOKEN, IContentHandler } from './interfaces/content-handler.interface';
+import { HandlerFactory } from './factories/handler-factory';
 import { DomainSpecificHandler } from './handlers/domain-specific.handler';
 import { PdfHandler } from './handlers/pdf.handler';
 import { RssHandler } from './handlers/rss.handler';
@@ -10,27 +10,6 @@ import { SocialMediaHandler } from './handlers/social-media.handler';
 import { NewsSiteHandler } from './handlers/news-site.handler';
 import { StibeeHandler } from './handlers/stibee.handler';
 import { MailyHandler } from './handlers/maily.handler';
-
-// --- Register all handlers here ---
-// The order is important: more specific handlers should come first.
-// 1. File type handlers (PDF, RSS) - most specific
-// 2. Platform-specific handlers (YouTube) - very specific
-// 3. Social media handlers - moderately specific
-// 4. News site handlers - moderately specific
-// 5. Newsletter platform handlers (Stibee, Maily) - moderately specific
-// 6. Domain transformation handlers - general transformations
-// 7. General readability handler - fallback for everything else
-const handlers = [
-	PdfHandler,
-	RssHandler,
-	YoutubeHandler,
-	SocialMediaHandler,
-	NewsSiteHandler,
-	StibeeHandler,
-	MailyHandler,
-	DomainSpecificHandler,
-	ReadabilityHandler,
-];
 
 /**
  * Encapsulates all content pre-handling logic.
@@ -50,17 +29,18 @@ const handlers = [
  */
 @Module({
 	providers: [
-		PreHandlerService,
-		...handlers,
-		{
-			provide: CONTENT_HANDLER_TOKEN,
-			// The useFactory provider collects all registered handlers and makes them
-			// available for injection as an array. To add a new handler,
-			// simply add it to the `handlers` array above and the `inject` array below.
-			useFactory: (...injectedHandlers: IContentHandler[]): IContentHandler[] => injectedHandlers,
-			inject: handlers,
-		},
+		RefactoredPreHandlerService,
+		HandlerFactory,
+		PdfHandler,
+		RssHandler,
+		YoutubeHandler,
+		SocialMediaHandler,
+		NewsSiteHandler,
+		StibeeHandler,
+		MailyHandler,
+		DomainSpecificHandler,
+		ReadabilityHandler,
 	],
-	exports: [PreHandlerService],
+	exports: [RefactoredPreHandlerService],
 })
 export class PreHandlerModule {}

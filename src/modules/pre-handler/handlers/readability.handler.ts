@@ -1,40 +1,94 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
-import { IContentHandler } from '../interfaces/content-handler.interface';
+import { AbstractContentHandler } from '../base/abstract-content-handler';
+import {
+	HttpRequestConfig,
+	DomConfig,
+	ContentCleaningConfig,
+	TitleExtractionConfig,
+} from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
 
 /**
- * Readability 파싱 결과 타입
- */
-interface ReadabilityResult {
-	title: string | null;
-	content: string | null;
-	textContent: string | null;
-	length: number;
-	excerpt: string | null;
-	byline: string | null;
-	dir: string | null;
-	siteName: string | null;
-}
-
-/**
- * A content handler that uses Mozilla's Readability library to extract
- * the main readable content from a generic webpage.
+ * Readability 기반 리팩토링된 콘텐츠 핸들러
+ * - AbstractContentHandler 기반
+ * - SOLID 원칙 및 함수형 프로그래밍 적용
  */
 @Injectable()
-export class ReadabilityHandler implements IContentHandler {
-	private readonly logger = new Logger(ReadabilityHandler.name);
+export class ReadabilityHandler extends AbstractContentHandler {
+	protected readonly logger = new Logger(ReadabilityHandler.name);
 	private readonly USER_AGENT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 
 	/**
-	 * This handler can attempt to process any HTTP/HTTPS URL.
-	 * It should typically be placed last in the handler chain as a fallback.
-	 * @param url - The URL to check.
-	 * @returns `true` if the protocol is http or https.
+	 * Readability는 모든 http/https URL을 처리할 수 있음
+	 * @param url 검사할 URL
 	 */
 	public canHandle(url: URL): boolean {
 		return ['http:', 'https:'].includes(url.protocol);
+	}
+
+	/**
+	 * 핸들러 이름
+	 */
+	protected get handlerName(): string {
+		return 'Readability 핸들러';
+	}
+
+	/**
+	 * HTTP 요청 설정 (표준)
+	 */
+	protected get httpConfig(): HttpRequestConfig {
+		return {
+			userAgent: this.USER_AGENT,
+			timeout: 10000,
+			headers: {},
+			redirect: 'follow',
+		};
+	}
+
+	/**
+	 * DOM 생성 설정 (스크립트 활성화)
+	 */
+	protected get domConfig(): DomConfig {
+		return {
+			userAgent: this.httpConfig.userAgent,
+			resources: 'usable',
+			runScripts: 'dangerously',
+			pretendToBeVisual: true,
+		};
+	}
+
+	/**
+	 * 콘텐츠 정제 설정 (Readability는 자체 정제)
+	 */
+	protected get cleaningConfig(): ContentCleaningConfig {
+		return {
+			removeUnwantedElements: false,
+			cleanupStyles: false,
+			cleanupLinks: false,
+			cleanupImages: false,
+			cleanupText: false,
+			refineTitle: true,
+		};
+	}
+
+	/**
+	 * 제목 추출 설정 (Readability 결과 기반)
+	 */
+	protected get titleConfig(): TitleExtractionConfig {
+		return {
+			selectors: [],
+			patterns: [],
+			siteSpecificPatterns: {},
+		};
+	}
+
+	/**
+	 * 본문 콘텐츠 추출용 셀렉터 (Readability는 사용하지 않음)
+	 */
+	protected get contentSelectors(): readonly string[] {
+		return [];
 	}
 
 	/**
@@ -44,28 +98,24 @@ export class ReadabilityHandler implements IContentHandler {
 	 */
 	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
-			// 첫 번째 시도: JavaScript 실행 활성화
+			// 1차 시도: 스크립트 활성화 DOM
 			let dom = await this.createDOMWithScripts(url.href);
-			let article = await this.extractContentFromDOM(dom);
-
-			// JavaScript 실행 중 오류가 발생하면 두 번째 시도
+			let article = this.extractContentFromDOM(dom);
+			// 실패 시: 스크립트 비활성화 DOM 재시도
 			if (!article?.content) {
 				this.logger.debug(`First attempt failed, trying without scripts for ${url.href}`);
 				dom = await this.createDOMWithoutScripts(url.href);
-				article = await this.extractContentFromDOM(dom);
+				article = this.extractContentFromDOM(dom);
 			}
-
 			if (!article?.content) {
 				this.logger.debug(`No readable content found for ${url.href}`);
 				return null;
 			}
-
 			this.logger.log(`Successfully extracted readable content: ${article.content.length} chars`);
-
 			return {
 				url: url.href,
 				title: article.title ?? undefined,
-				content: article.content,
+				content: article.content ?? undefined,
 				contentType: 'text/html',
 			};
 		} catch (error) {
@@ -75,35 +125,23 @@ export class ReadabilityHandler implements IContentHandler {
 	}
 
 	/**
-	 * JavaScript 실행을 활성화한 JSDOM 생성
-	 * @param url - 처리할 URL
-	 * @returns JSDOM 인스턴스
+	 * 스크립트 활성화 JSDOM 생성
 	 */
 	private async createDOMWithScripts(url: string): Promise<JSDOM> {
-		const dom = await JSDOM.fromURL(url, {
-			userAgent: this.USER_AGENT,
+		return JSDOM.fromURL(url, {
+			userAgent: this.httpConfig.userAgent,
 			resources: 'usable',
 			runScripts: 'dangerously',
 			pretendToBeVisual: true,
 		});
-
-		// 브라우저 API polyfill 추가
-		this.addBrowserPolyfills(dom.window as unknown as Window & typeof globalThis);
-
-		// 에러 핸들링 추가
-		this.addErrorHandling(dom.window as unknown as Window & typeof globalThis);
-
-		return dom;
 	}
 
 	/**
-	 * JavaScript 실행을 비활성화한 JSDOM 생성
-	 * @param url - 처리할 URL
-	 * @returns JSDOM 인스턴스
+	 * 스크립트 비활성화 JSDOM 생성
 	 */
 	private async createDOMWithoutScripts(url: string): Promise<JSDOM> {
 		return JSDOM.fromURL(url, {
-			userAgent: this.USER_AGENT,
+			userAgent: this.httpConfig.userAgent,
 			resources: 'usable',
 			runScripts: 'outside-only',
 			pretendToBeVisual: true,
@@ -111,19 +149,14 @@ export class ReadabilityHandler implements IContentHandler {
 	}
 
 	/**
-	 * DOM에서 콘텐츠 추출
-	 * @param dom - JSDOM 인스턴스
-	 * @returns 추출된 아티클 또는 null
+	 * Readability로 콘텐츠 추출
 	 */
-	private async extractContentFromDOM(dom: JSDOM): Promise<ReadabilityResult | null> {
+	private extractContentFromDOM(dom: JSDOM): { title?: string; content?: string } | null {
 		try {
-			// 페이지 로딩 대기
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-
 			const reader = new Readability(dom.window.document);
 			const article = reader.parse();
-
-			return article as ReadabilityResult | null;
+			if (!article) return null;
+			return { title: article.title ?? undefined, content: article.content ?? undefined };
 		} catch (error) {
 			this.logger.debug(`Content extraction failed: ${(error as Error).message}`);
 			return null;

@@ -6,7 +6,7 @@ import { BrowserService } from './browser.service';
 import { FetchContentInput } from '../dto/fetch-content.input';
 import { ScrapedContentOutput } from '../dto/scraped-content.output';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
-import { PreHandlerService } from '../../pre-handler/pre-handler.service';
+import { RefactoredPreHandlerService } from '../../pre-handler/refactored-pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
 
 // ---------------------- CONSTANTS ----------------------
@@ -44,7 +44,7 @@ export class PuppeteerParseService {
 
 	constructor(
 		private readonly browserService: BrowserService,
-		private readonly preHandlerService: PreHandlerService,
+		private readonly preHandlerService: RefactoredPreHandlerService,
 		private readonly articleService: ArticleService,
 	) {}
 
@@ -304,7 +304,7 @@ export class PuppeteerParseService {
 	 * @param url - 원본 URL (상대 링크 처리용)
 	 * @returns 정제된 콘텐츠 또는 원본 HTML (실패 시)
 	 */
-	private async applyReadabilityToHtml(html: string, url: string): Promise<string> {
+	private applyReadabilityToHtml(html: string, url: string): Promise<string> {
 		try {
 			const dom = new JSDOM(html, { url });
 			const reader = new Readability(dom.window.document);
@@ -312,7 +312,7 @@ export class PuppeteerParseService {
 
 			if (article?.content) {
 				this.logger.log(`Successfully extracted readable content from HTML (${article.content.length} chars)`);
-				return article.content;
+				return Promise.resolve(article.content);
 			} else {
 				this.logger.warn(`Readability failed to extract content from HTML, using original`);
 			}
@@ -321,6 +321,6 @@ export class PuppeteerParseService {
 		}
 
 		// 실패 시 원본 반환
-		return html;
+		return Promise.resolve(html);
 	}
 }

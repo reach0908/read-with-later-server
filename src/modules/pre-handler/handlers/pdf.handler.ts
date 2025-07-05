@@ -1,57 +1,115 @@
+/**
+ * PDF 파일을 위한 리팩토링된 콘텐츠 핸들러
+ * - AbstractContentHandler 기반
+ * - SOLID 원칙 및 함수형 프로그래밍 적용
+ */
 import { Injectable, Logger } from '@nestjs/common';
-import { IContentHandler } from '../interfaces/content-handler.interface';
+import { AbstractContentHandler } from '../base/abstract-content-handler';
+import {
+	HttpRequestConfig,
+	DomConfig,
+	ContentCleaningConfig,
+	TitleExtractionConfig,
+} from '../types/content-extraction.types';
 import { PreHandleResult } from '../dto/pre-handle-result.dto';
 
 /**
- * A content handler specifically for PDF files.
- * This handler detects PDF URLs and marks them appropriately
- * so that the main scraping service can handle them differently.
+ * PDF 파일 핸들러
  */
 @Injectable()
-export class PdfHandler implements IContentHandler {
-	private readonly logger = new Logger(PdfHandler.name);
+export class PdfHandler extends AbstractContentHandler {
+	protected readonly logger = new Logger(PdfHandler.name);
 
 	/**
-	 * Checks if the URL points to a PDF file.
-	 * @param url - The URL to check.
-	 * @returns `true` if the URL appears to be a PDF file.
+	 * PDF 파일 처리 여부
+	 * @param url 검사할 URL
 	 */
 	public canHandle(url: URL): boolean {
-		// Check file extension
 		if (url.pathname.toLowerCase().endsWith('.pdf')) {
 			return true;
 		}
-
-		// Check for common PDF hosting patterns
 		const pdfPatterns = [/\/pdf\//i, /\.pdf$/i, /\/download.*\.pdf/i, /\/files.*\.pdf/i, /\/documents.*\.pdf/i];
-
 		return pdfPatterns.some((pattern) => pattern.test(url.pathname));
 	}
 
 	/**
-	 * Processes PDF URLs by marking them with the correct content type.
-	 * @param url - The URL of the PDF to handle.
-	 * @returns A `PreHandleResult` with PDF content type, or `null` on failure.
+	 * 핸들러 이름
+	 */
+	protected get handlerName(): string {
+		return 'PDF 핸들러';
+	}
+
+	/**
+	 * HTTP 요청 설정 (PDF는 별도 요청 불필요)
+	 */
+	protected get httpConfig(): HttpRequestConfig {
+		return {
+			userAgent: '',
+			timeout: 0,
+			headers: {},
+			redirect: 'follow',
+		};
+	}
+
+	/**
+	 * DOM 생성 설정 (PDF는 사용하지 않음)
+	 */
+	protected get domConfig(): DomConfig {
+		return {
+			userAgent: '',
+			resources: 'usable',
+			runScripts: 'outside-only',
+			pretendToBeVisual: false,
+		};
+	}
+
+	/**
+	 * 콘텐츠 정제 설정 (PDF는 정제 불필요)
+	 */
+	protected get cleaningConfig(): ContentCleaningConfig {
+		return {
+			removeUnwantedElements: false,
+			cleanupStyles: false,
+			cleanupLinks: false,
+			cleanupImages: false,
+			cleanupText: false,
+			refineTitle: true,
+		};
+	}
+
+	/**
+	 * 제목 추출 설정 (파일명 기반)
+	 */
+	protected get titleConfig(): TitleExtractionConfig {
+		return {
+			selectors: [],
+			patterns: [/\.pdf$/i, /[-_]/g],
+			siteSpecificPatterns: {},
+		};
+	}
+
+	/**
+	 * 본문 콘텐츠 추출용 셀렉터 (사용하지 않음)
+	 */
+	protected get contentSelectors(): readonly string[] {
+		return [];
+	}
+
+	/**
+	 * PDF는 별도 본문 추출 없이 타입 마킹만 수행
 	 */
 	public handle(url: URL): Promise<PreHandleResult | null> {
 		try {
-			// For PDF files, we don't extract content here but mark the content type
-			// The main service will handle PDF extraction using appropriate tools
-
-			// Try to extract title from URL path
 			let title: string | undefined;
 			const pathParts = url.pathname.split('/');
 			const filename = pathParts[pathParts.length - 1];
-
 			if (filename && filename.includes('.pdf')) {
-				// Remove .pdf extension and clean up the filename for title
 				title = filename
 					.replace(/\.pdf$/i, '')
 					.replace(/[-_]/g, ' ')
 					.replace(/\b\w/g, (l) => l.toUpperCase())
 					.trim();
 			}
-
 			return Promise.resolve({
 				url: url.href,
 				title,
