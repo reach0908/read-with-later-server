@@ -241,6 +241,6 @@ export const extractTitleFromPath = (path: string, options?: { removeExtension?:
  * @param fns 합성할 함수들
  * @returns 합성된 함수
  */
-export function compose<T>(...fns: Array<(arg: T, ...rest: any[]) => T>): (arg: T, ...rest: any[]) => T {
-	return (arg: T, ...rest: any[]) => fns.reduce((acc, fn) => fn(acc, ...rest), arg);
+export function compose<T, A extends unknown[]>(...fns: Array<(arg: T, ...rest: A) => T>): (arg: T, ...rest: A) => T {
+	return (arg: T, ...rest: A) => fns.reduce((acc, fn) => fn(acc, ...rest), arg);
 }

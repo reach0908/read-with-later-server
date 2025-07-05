@@ -129,7 +129,9 @@ describe('JwtAuthGuard', () => {
 			const result = await guard.canActivate(contextWithRequest);
 			expect(result).toBe(true);
 			expect(mockRequest.user).toEqual(mockUser);
+			// eslint-disable-next-line @typescript-eslint/unbound-method
 			expect(jwtService.verify).toHaveBeenCalledWith('valid-token');
+			// eslint-disable-next-line @typescript-eslint/unbound-method
 			expect(authService.validateUser).toHaveBeenCalledWith('test@example.com');
 		});
 	});

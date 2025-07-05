@@ -1,5 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
 import authConfig from '../auth.config';
 
 describe('authConfig', () => {

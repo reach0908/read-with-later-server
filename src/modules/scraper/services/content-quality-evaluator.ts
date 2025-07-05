@@ -294,7 +294,7 @@ export class ContentQualityEvaluator {
 		averageSentenceLength: number;
 		contentStructure: ContentStructure;
 	}): number {
-		const { textLength, sentenceCount, wordCount, averageSentenceLength, contentStructure } = metrics;
+		const { textLength, sentenceCount, averageSentenceLength, contentStructure } = metrics;
 		// 기본 점수 (텍스트 길이 기반)
 		let score = Math.round(textLength / 10); // 10자당 1점으로 상향
 		// 문장 구조 점수

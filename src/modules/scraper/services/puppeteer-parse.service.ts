@@ -273,8 +273,10 @@ export class PuppeteerParseService {
 
 			// adsbygoogle 관련 에러 억제
 			if (typeof window !== 'undefined') {
-				(window as any).adsbygoogle = (window as any).adsbygoogle || [];
-				(window as any).adsbygoogle.push = () => {};
+				const w = window as unknown as { adsbygoogle: Array<unknown> };
+				w.adsbygoogle = w.adsbygoogle || [];
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion
+				(w.adsbygoogle as unknown[]).push = (..._items: unknown[]): number => 0;
 			}
 		});
 
