@@ -55,8 +55,8 @@ describe('AuthService', () => {
 
 		it('이메일이 undefined/null이면 NotFoundException을 던진다', async () => {
 			userService.getUserByEmail.mockResolvedValue(null);
-			await expect(service.validateUser(undefined as any)).rejects.toThrow(NotFoundException);
-			await expect(service.validateUser(null as any)).rejects.toThrow(NotFoundException);
+			await expect(service.validateUser(undefined as unknown as string)).rejects.toThrow(NotFoundException);
+			await expect(service.validateUser(null as unknown as string)).rejects.toThrow(NotFoundException);
 		});
 	});
 });

@@ -44,7 +44,9 @@ describe('TokenService', () => {
 			deleteMany: jest.fn(),
 			create: jest.fn(),
 			prisma: {
-				$transaction: jest.fn((callback: (tx: any) => unknown) => callback(refreshTokenRepository)),
+				$transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
+					callback(refreshTokenRepository),
+				),
 			},
 		};
 
@@ -119,9 +121,11 @@ describe('TokenService', () => {
 	describe('generateTokenPair', () => {
 		it('액세스 토큰과 리프레시 토큰 쌍을 생성하고 저장한다', async () => {
 			jwtService.sign.mockReturnValueOnce(mockAccessToken).mockReturnValueOnce(mockRefreshToken);
-			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
-				await cb(refreshTokenRepository);
-			});
+			refreshTokenRepository.prisma.$transaction.mockImplementation(
+				async (cb: (tx: unknown) => Promise<unknown>) => {
+					await cb(refreshTokenRepository);
+				},
+			);
 			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
 			refreshTokenRepository.create.mockResolvedValue(undefined);
 
@@ -149,9 +153,11 @@ describe('TokenService', () => {
 			refreshTokenRepository.findFirst.mockResolvedValue({ id: '1' });
 			userService.getUserByEmail.mockResolvedValue(mockUser);
 			jwtService.sign.mockReturnValueOnce('new-access-token').mockReturnValueOnce('new-refresh-token');
-			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
-				await cb(refreshTokenRepository);
-			});
+			refreshTokenRepository.prisma.$transaction.mockImplementation(
+				async (cb: (tx: unknown) => Promise<unknown>) => {
+					await cb(refreshTokenRepository);
+				},
+			);
 			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
 			refreshTokenRepository.create.mockResolvedValue(undefined);
 
@@ -206,16 +212,18 @@ describe('TokenService', () => {
 		});
 
 		it('refreshToken이 undefined/null이면 UnauthorizedException을 던진다', async () => {
-			await expect(service.refreshTokens(undefined as any)).rejects.toThrow(UnauthorizedException);
-			await expect(service.refreshTokens(null as any)).rejects.toThrow(UnauthorizedException);
+			await expect(service.refreshTokens(undefined as unknown as string)).rejects.toThrow(UnauthorizedException);
+			await expect(service.refreshTokens(null as unknown as string)).rejects.toThrow(UnauthorizedException);
 		});
 	});
 
 	describe('saveRefreshToken', () => {
 		it('리프레시 토큰을 데이터베이스에 저장한다', async () => {
-			refreshTokenRepository.prisma.$transaction.mockImplementation(async (cb: any) => {
-				await cb(refreshTokenRepository);
-			});
+			refreshTokenRepository.prisma.$transaction.mockImplementation(
+				async (cb: (tx: unknown) => Promise<unknown>) => {
+					await cb(refreshTokenRepository);
+				},
+			);
 			refreshTokenRepository.deleteMany.mockResolvedValue(undefined);
 			refreshTokenRepository.create.mockResolvedValue(undefined);
 
@@ -230,7 +238,7 @@ describe('TokenService', () => {
 				{
 					token: mockRefreshToken,
 					isValid: true,
-					expiresAt: expect.any(Date) as Date,
+					expiresAt: expect.any(Date),
 					user: { connect: { id: mockUser.id } },
 				},
 				refreshTokenRepository,
