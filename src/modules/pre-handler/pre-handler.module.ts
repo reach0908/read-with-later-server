@@ -9,6 +9,7 @@ import { YoutubeHandler } from './handlers/youtube.handler';
 import { SocialMediaHandler } from './handlers/social-media.handler';
 import { NewsSiteHandler } from './handlers/news-site.handler';
 import { StibeeHandler } from './handlers/stibee.handler';
+import { MailyHandler } from './handlers/maily.handler';
 
 // --- Register all handlers here ---
 // The order is important: more specific handlers should come first.
@@ -16,7 +17,7 @@ import { StibeeHandler } from './handlers/stibee.handler';
 // 2. Platform-specific handlers (YouTube) - very specific
 // 3. Social media handlers - moderately specific
 // 4. News site handlers - moderately specific
-// 5. Newsletter platform handlers (Stibee) - moderately specific
+// 5. Newsletter platform handlers (Stibee, Maily) - moderately specific
 // 6. Domain transformation handlers - general transformations
 // 7. General readability handler - fallback for everything else
 const handlers = [
@@ -26,6 +27,7 @@ const handlers = [
 	SocialMediaHandler,
 	NewsSiteHandler,
 	StibeeHandler,
+	MailyHandler,
 	DomainSpecificHandler,
 	ReadabilityHandler,
 ];
@@ -42,8 +44,9 @@ const handlers = [
  * 4. SocialMediaHandler - Transforms social media URLs
  * 5. NewsSiteHandler - Transforms news site URLs
  * 6. StibeeHandler - Extracts Stibee newsletter content
- * 7. DomainSpecificHandler - Transforms URLs for other specific domains
- * 8. ReadabilityHandler - Fallback for general web content
+ * 7. MailyHandler - Extracts Maily newsletter content
+ * 8. DomainSpecificHandler - Transforms URLs for other specific domains
+ * 9. ReadabilityHandler - Fallback for general web content
  */
 @Module({
 	providers: [
