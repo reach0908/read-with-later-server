@@ -8,7 +8,7 @@ import { ScrapedContentOutput } from '../dto/scraped-content.output';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
-import { ContentQualityEvaluator, ContentQualityMetrics } from './content-quality-evaluator';
+import { ContentQualityEvaluator } from './content-quality-evaluator';
 import sanitizeHtml, { IOptions } from 'sanitize-html';
 
 // ---------------------- CONSTANTS ----------------------
@@ -57,7 +57,7 @@ export class PuppeteerParseService {
 	async fetchContent({ url, locale, timezone }: FetchContentInput): Promise<ScrapedContentOutput> {
 		url = this.normalizeUrl(url);
 
-		// (1) Execute pre-handling using the new extensible service
+		// (1) Execute pre-handling using the new extensible service (품질 평가 포함)
 		const preHandleResult = await this.preHandlerService.execute(url);
 
 		let { title, content, contentType } = preHandleResult;
@@ -71,17 +71,10 @@ export class PuppeteerParseService {
 			this.logger.log(`Pre-handler extracted title: ${title}`);
 		}
 
-		// (2) 품질 평가 및 조건부 Puppeteer fallback
-		let quality: ContentQualityMetrics | undefined = undefined;
-		let usePuppeteer = false;
-		if (content) {
-			quality = this.contentQualityEvaluator.evaluate(content, content, {});
-			this.logger.log(
-				`Content quality: chars=${quality.characterCount}, paragraphs=${quality.paragraphCount}, linkDensity=${quality.linkDensity}, score=${quality.readabilityScore}, isProbablyReadable=${quality.isProbablyReadable}`,
-			);
-			usePuppeteer = !quality.isProbablyReadable;
-		}
-		if (contentType !== 'application/pdf' && (!content || usePuppeteer)) {
+		// (2) Pre-Handler에서 품질이 좋은 컨텐츠를 추출하지 못한 경우에만 Puppeteer fallback
+		const shouldUsePuppeteer = contentType !== 'application/pdf' && !content;
+
+		if (shouldUsePuppeteer) {
 			this.logger.debug(`Puppeteer fallback required for: ${url}`);
 			const pageResult = await this.retrievePage({ url, locale, timezone });
 			url = pageResult.finalUrl;
@@ -237,10 +230,52 @@ export class PuppeteerParseService {
 		const context = await browser.createBrowserContext();
 		const page = await context.newPage();
 
-		// 웹페이지의 console.log 등 콘솔 출력을 무시
+		// 웹페이지의 모든 콘솔 출력과 에러를 완전히 억제
 		page.on('console', () => {
 			// 아무 동작도 하지 않음 (출력 억제)
 			return;
+		});
+
+		// 페이지 에러 이벤트도 억제
+		page.on('pageerror', () => {
+			// 아무 동작도 하지 않음 (에러 출력 억제)
+			return;
+		});
+
+		// 웹소켓 에러도 억제
+		page.on('error', () => {
+			// 아무 동작도 하지 않음 (에러 출력 억제)
+			return;
+		});
+
+		// 브라우저 콘솔 에러도 억제
+		page.on('crash', () => {
+			// 아무 동작도 하지 않음 (크래시 출력 억제)
+			return;
+		});
+
+		// 페이지 내부에서 발생하는 모든 에러를 억제하기 위한 스크립트 주입
+		await page.evaluateOnNewDocument(() => {
+			// console 메서드들을 무시하도록 재정의
+			console.log = () => {};
+			console.error = () => {};
+			console.warn = () => {};
+			console.info = () => {};
+			console.debug = () => {};
+
+			// window.onerror를 무시하도록 설정
+			window.onerror = () => true;
+
+			// unhandledrejection 이벤트도 무시
+			window.addEventListener('unhandledrejection', (e) => {
+				e.preventDefault();
+			});
+
+			// adsbygoogle 관련 에러 억제
+			if (typeof window !== 'undefined') {
+				(window as any).adsbygoogle = (window as any).adsbygoogle || [];
+				(window as any).adsbygoogle.push = () => {};
+			}
 		});
 
 		if (!this.enableJavascriptForUrl(url)) {

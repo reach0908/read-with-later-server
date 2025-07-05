@@ -177,7 +177,7 @@ export const cleanupImages: CleaningFunction<Element> = (element, context) => {
 export const cleanupText: CleaningFunction<Element> = (element) => {
 	const emptyElements = element.querySelectorAll('p, div, span');
 	emptyElements.forEach((el) => {
-		if (!el.textContent?.trim() && !el.querySelector('img')) {
+		if (!el.textContent?.trim()) {
 			el.remove();
 		}
 	});
@@ -196,6 +196,13 @@ export const cleanupText: CleaningFunction<Element> = (element) => {
 			}
 		}
 	}
+	// 이미지 alt 속성 보강
+	const images = element.querySelectorAll('img');
+	images.forEach((img) => {
+		if (!img.hasAttribute('alt')) {
+			img.setAttribute('alt', '');
+		}
+	});
 	return element;
 };
 

@@ -128,10 +128,10 @@ export abstract class AbstractContentHandler implements IContentHandler {
 			this.titleConfig.patterns,
 		);
 		const title: string | undefined = titleOption == null ? undefined : titleOption;
-		// 콘텐츠 요소 찾기 (minTextLength 30, logger 전달)
-		const contentElement = findContentElement(document, this.contentSelectors, 30, this.logger);
+		// 콘텐츠 요소 찾기 (minTextLength 80, logger 전달)
+		const contentElement = findContentElement(document, this.contentSelectors, 80, this.logger);
 		if (!contentElement) {
-			this.logger.debug(`${this.handlerName} 본문 요소를 찾지 못해 body로 fallback`);
+			this.logger.debug(`${this.handlerName} 본문 요소를 찾지 못해 null 반환`);
 			return { title, contentType: 'text/html', url };
 		}
 		// 콘텐츠 정제

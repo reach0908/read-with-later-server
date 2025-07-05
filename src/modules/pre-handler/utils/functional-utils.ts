@@ -180,14 +180,14 @@ export const extractTitle = (
  * 여러 셀렉터를 이용해 본문 콘텐츠 요소를 찾습니다.
  * @param document DOM 문서
  * @param selectors 셀렉터 목록
- * @param minTextLength 최소 텍스트 길이 (기본값 30)
+ * @param minTextLength 최소 텍스트 길이 (기본값 80)
  * @param logger (선택) 로깅용
  * @returns 콘텐츠 요소 또는 null
  */
 export const findContentElement = (
 	document: Document,
 	selectors: readonly string[],
-	minTextLength: number = 30,
+	minTextLength: number = 80,
 	logger?: { debug?: (msg: string) => void },
 ): Option<Element> => {
 	let bestElement: Element | null = null;
@@ -209,9 +209,9 @@ export const findContentElement = (
 		return bestElement;
 	}
 	logger?.debug?.(
-		`[findContentElement] No selector matched element with length >= ${minTextLength}, fallback to body`,
+		`[findContentElement] No selector matched element with length >= ${minTextLength}, fallback to null`,
 	);
-	return document.body || null;
+	return null;
 };
 
 /**

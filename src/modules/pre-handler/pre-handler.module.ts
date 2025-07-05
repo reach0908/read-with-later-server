@@ -14,6 +14,7 @@ import { TistoryHandler } from './handlers/tistory.handler';
 import { MediumHandler } from './handlers/medium.handler';
 import { NaverBlogHandler } from './handlers/naver-blog.handler';
 import { DisquietHandler } from './handlers/disquiet.handler';
+import { ContentQualityEvaluator } from '../scraper/services/content-quality-evaluator';
 
 /**
  * Encapsulates all content pre-handling logic.
@@ -36,6 +37,7 @@ import { DisquietHandler } from './handlers/disquiet.handler';
 	providers: [
 		RefactoredPreHandlerService,
 		HandlerFactory,
+		ContentQualityEvaluator,
 		PdfHandler,
 		RssHandler,
 		YoutubeHandler,
