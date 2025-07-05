@@ -1,12 +1,9 @@
 import { RefreshTokenRepository } from '../refresh-token.repository';
 import { PrismaService } from 'src/database/prisma.service';
-import { UserFactory } from '../../../../../test/factories/user.factory';
 
 describe('RefreshTokenRepository', () => {
 	let repo: RefreshTokenRepository;
 	let prisma: PrismaService;
-
-	let mockUser: any;
 
 	beforeEach(() => {
 		prisma = {
@@ -17,7 +14,6 @@ describe('RefreshTokenRepository', () => {
 			},
 		} as any;
 		repo = new RefreshTokenRepository(prisma);
-		mockUser = UserFactory.create();
 	});
 
 	it('should be defined', () => {
@@ -26,16 +22,19 @@ describe('RefreshTokenRepository', () => {
 
 	it('should call findFirst', async () => {
 		await repo.findFirst({ where: {} });
-		expect(prisma.refreshToken.findFirst).toBeCalled();
+		// eslint-disable-next-line @typescript-eslint/unbound-method
+		expect(prisma.refreshToken.findFirst).toHaveBeenCalled();
 	});
 
 	it('should call deleteMany', async () => {
 		await repo.deleteMany({ where: {} });
-		expect(prisma.refreshToken.deleteMany).toBeCalled();
+		// eslint-disable-next-line @typescript-eslint/unbound-method
+		expect(prisma.refreshToken.deleteMany).toHaveBeenCalled();
 	});
 
 	it('should call create', async () => {
 		await repo.create({ token: 't', expiresAt: new Date(), user: { connect: { id: '1' } } });
-		expect(prisma.refreshToken.create).toBeCalled();
+		// eslint-disable-next-line @typescript-eslint/unbound-method
+		expect(prisma.refreshToken.create).toHaveBeenCalled();
 	});
 });

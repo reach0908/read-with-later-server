@@ -2,12 +2,16 @@ import { NestFactory } from '@nestjs/core';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from 'src/common/interceptors/logging.interceptor';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule);
+	// 로그 레벨 설정 (단일 값)
+	const logLevel = (process.env.LOG_LEVEL || 'log') as 'log' | 'error' | 'warn' | 'debug' | 'verbose' | 'fatal';
+	const app = await NestFactory.create(AppModule, {
+		logger: [logLevel],
+	});
 
 	// Helmet 보안 미들웨어 추가
 	app.use(helmet());
@@ -44,19 +48,27 @@ async function bootstrap() {
 					type: 'http',
 					scheme: 'bearer',
 					bearerFormat: 'JWT',
-					description: 'Input your JWT token',
+					description: 'Enter JWT token (without "Bearer" prefix)',
 					name: 'Authorization',
 					in: 'header',
 				},
 				'access-token',
 			)
+			.addSecurityRequirements('access-token')
 			.build();
 
 		const document = SwaggerModule.createDocument(app, config);
-		SwaggerModule.setup('api', app, document);
+		SwaggerModule.setup('api', app, document, {
+			swaggerOptions: {
+				persistAuthorization: true, // 브라우저 새로고침 시에도 토큰 유지
+			},
+		});
 	}
+
+	const logger = new Logger('Bootstrap');
+	logger.log(`Application starting with log level: ${logLevel}`);
 
 	await app.listen(process.env.PORT ?? 4000);
 }
 
-bootstrap();
+void bootstrap();
