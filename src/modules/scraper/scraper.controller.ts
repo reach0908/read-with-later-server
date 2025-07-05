@@ -19,6 +19,7 @@ import { FetchContentInput } from './dto/fetch-content.input';
 import { ScrapedContentOutput } from './dto/scraped-content.output';
 import { RefactoredPreHandlerService } from '../pre-handler/pre-handler.service';
 import { PreHandleResult } from '../pre-handler/dto/pre-handle-result.dto';
+import { SaveContentInput } from './dto/save-content.input';
 
 @ApiTags('scraper')
 @Controller('scraper')
@@ -72,20 +73,7 @@ export class ScraperController {
 		summary: '웹 콘텐츠 스크래핑 및 저장',
 		description: '웹 콘텐츠를 스크래핑하고 사용자 계정에 저장합니다. 인증이 필요합니다.',
 	})
-	@ApiBody({
-		schema: {
-			type: 'object',
-			properties: {
-				url: { type: 'string', description: '스크래핑할 URL' },
-				locale: { type: 'string', description: '언어 설정 (선택사항)' },
-				timezone: { type: 'string', description: '시간대 설정 (선택사항)' },
-				tags: { type: 'array', items: { type: 'string' }, description: '태그 목록 (선택사항)' },
-				isBookmarked: { type: 'boolean', description: '북마크 여부 (선택사항)' },
-				isArchived: { type: 'boolean', description: '아카이브 여부 (선택사항)' },
-			},
-			required: ['url'],
-		},
-	})
+	@ApiBody({ type: SaveContentInput })
 	@ApiResponse({
 		status: 200,
 		description: '스크래핑 및 저장 성공',
@@ -114,23 +102,12 @@ export class ScraperController {
 	})
 	async saveContent(
 		@Request() req: AuthRequest,
-		@Body() input: Record<string, any>,
+		@Body() input: SaveContentInput,
 	): Promise<ScrapedContentOutput & { saved: boolean }> {
-		// URL 필수 필드 검증
-		if (!input.url) {
-			throw new BadRequestException('URL is required');
-		}
-
-		// 인증된 사용자 정보 사용
 		const fetchInput: FetchContentWithSaveInput = {
-			url: input.url as string,
-			locale: input.locale as string | undefined,
-			timezone: input.timezone as string | undefined,
-			tags: input.tags as string[] | undefined,
-			isBookmarked: input.isBookmarked as boolean | undefined,
-			isArchived: input.isArchived as boolean | undefined,
-			saveToDatabase: true, // 저장 활성화
-			userId: req.user.id, // 인증된 사용자 ID 사용
+			...input,
+			saveToDatabase: true,
+			userId: req.user.id,
 		};
 
 		const result = await this.puppeteerParseService.fetchContentWithSave(fetchInput);

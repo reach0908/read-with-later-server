@@ -9,7 +9,6 @@ import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
 import { ContentQualityEvaluator } from './content-quality-evaluator';
-import sanitizeHtml, { IOptions } from 'sanitize-html';
 
 // ---------------------- CONSTANTS ----------------------
 const NON_SCRIPT_HOSTS = ['medium.com', 'fastcompany.com', 'fortelabs.com'] as const;
@@ -85,69 +84,9 @@ export class PuppeteerParseService {
 				// 사전 처리에서 이미 타이틀이 있다면 유지, 없다면 HTML에서 추출
 				title = title || html.title;
 
-				// Disquiet.io 도메인에 대해 커스텀 추출
-				if (new URL(url).hostname.endsWith('disquiet.io')) {
-					const dom = new JSDOM(html.content, { url });
-					const document = dom.window.document;
-					// detail ~ maker-log-detail 구간만 추출
-					const detail = document.querySelector('.sc-keuYuY.detail-page');
-					let extracted = '';
-					if (detail) {
-						const makerLog = detail.querySelector('.sc-hBtRBD.maker-log-detail');
-						if (makerLog) {
-							extracted = makerLog.outerHTML;
-						} else {
-							extracted = detail.outerHTML;
-						}
-					}
-					// sanitize-html로 정제
-					const htmlInput: string = extracted || html.content;
-					const safeHtml: string = (sanitizeHtml as unknown as (input: string, options: IOptions) => string)(
-						htmlInput,
-						{
-							allowedTags: [
-								'p',
-								'em',
-								'strong',
-								'b',
-								'i',
-								'u',
-								'a',
-								'img',
-								'ul',
-								'ol',
-								'li',
-								'blockquote',
-								'h1',
-								'h2',
-								'h3',
-								'h4',
-								'h5',
-								'h6',
-								'pre',
-								'code',
-								'span',
-								'div',
-								'br',
-							],
-							allowedAttributes: {
-								a: ['href', 'name', 'target', 'rel'],
-								img: ['src', 'alt', 'width', 'height', 'title', 'loading'],
-								div: ['class', 'style'],
-								span: ['class', 'style'],
-								'*': ['style'],
-							},
-							allowedSchemes: ['http', 'https', 'data'],
-							disallowedTagsMode: 'discard',
-							allowProtocolRelative: false,
-						},
-					);
-					content = safeHtml;
-				} else {
-					// Readability 적용 (기존)
-					if (html.content) {
-						content = await this.applyReadabilityToHtml(html.content, url);
-					}
+				// 도메인 특화 로직 제거: 핸들러에서 처리되므로 여기서는 Readability만 적용
+				if (html.content) {
+					content = await this.applyReadabilityToHtml(html.content, url);
 				}
 			}
 

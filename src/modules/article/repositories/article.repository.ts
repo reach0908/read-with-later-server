@@ -114,8 +114,10 @@ export class ArticleRepository {
 		try {
 			return await this.prisma.article.update({
 				where: {
-					id,
-					userId,
+					id_userId: {
+						id,
+						userId,
+					},
 				},
 				data,
 				include: {
@@ -142,8 +144,10 @@ export class ArticleRepository {
 		try {
 			await this.prisma.article.delete({
 				where: {
-					id,
-					userId,
+					id_userId: {
+						id,
+						userId,
+					},
 				},
 			});
 			return true;

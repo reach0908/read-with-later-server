@@ -104,7 +104,8 @@ export class TokenService {
 
 			await this.removeRefreshToken(refreshToken);
 			return await this.generateTokenPair(user);
-		} catch {
+		} catch (error) {
+			this.logger.warn(`Token refresh failed: ${(error as Error).message}`);
 			throw new UnauthorizedException('Invalid refresh token');
 		}
 	}
