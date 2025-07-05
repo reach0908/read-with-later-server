@@ -9,7 +9,7 @@ import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
 import { ContentQualityEvaluator, ContentQualityMetrics } from './content-quality-evaluator';
-import sanitizeHtml from 'sanitize-html';
+import sanitizeHtml, { IOptions } from 'sanitize-html';
 
 // ---------------------- CONSTANTS ----------------------
 const NON_SCRIPT_HOSTS = ['medium.com', 'fastcompany.com', 'fortelabs.com'] as const;
@@ -108,43 +108,47 @@ export class PuppeteerParseService {
 						}
 					}
 					// sanitize-html로 정제
-					const safeHtml = sanitizeHtml(extracted || html.content, {
-						allowedTags: [
-							'p',
-							'em',
-							'strong',
-							'b',
-							'i',
-							'u',
-							'a',
-							'img',
-							'ul',
-							'ol',
-							'li',
-							'blockquote',
-							'h1',
-							'h2',
-							'h3',
-							'h4',
-							'h5',
-							'h6',
-							'pre',
-							'code',
-							'span',
-							'div',
-							'br',
-						],
-						allowedAttributes: {
-							a: ['href', 'name', 'target', 'rel'],
-							img: ['src', 'alt', 'width', 'height', 'title', 'loading'],
-							div: ['class', 'style'],
-							span: ['class', 'style'],
-							'*': ['style'],
+					const htmlInput: string = extracted || html.content;
+					const safeHtml: string = (sanitizeHtml as unknown as (input: string, options: IOptions) => string)(
+						htmlInput,
+						{
+							allowedTags: [
+								'p',
+								'em',
+								'strong',
+								'b',
+								'i',
+								'u',
+								'a',
+								'img',
+								'ul',
+								'ol',
+								'li',
+								'blockquote',
+								'h1',
+								'h2',
+								'h3',
+								'h4',
+								'h5',
+								'h6',
+								'pre',
+								'code',
+								'span',
+								'div',
+								'br',
+							],
+							allowedAttributes: {
+								a: ['href', 'name', 'target', 'rel'],
+								img: ['src', 'alt', 'width', 'height', 'title', 'loading'],
+								div: ['class', 'style'],
+								span: ['class', 'style'],
+								'*': ['style'],
+							},
+							allowedSchemes: ['http', 'https', 'data'],
+							disallowedTagsMode: 'discard',
+							allowProtocolRelative: false,
 						},
-						allowedSchemes: ['http', 'https', 'data'],
-						disallowedTagsMode: 'discard',
-						allowProtocolRelative: false,
-					});
+					);
 					content = safeHtml;
 				} else {
 					// Readability 적용 (기존)
@@ -232,6 +236,12 @@ export class PuppeteerParseService {
 		const browser = await this.browserService.getBrowser();
 		const context = await browser.createBrowserContext();
 		const page = await context.newPage();
+
+		// 웹페이지의 console.log 등 콘솔 출력을 무시
+		page.on('console', () => {
+			// 아무 동작도 하지 않음 (출력 억제)
+			return;
+		});
 
 		if (!this.enableJavascriptForUrl(url)) {
 			await page.setJavaScriptEnabled(false);
