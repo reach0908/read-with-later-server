@@ -76,6 +76,10 @@ export class PuppeteerParseService {
 		if (shouldUsePuppeteer) {
 			this.logger.debug(`Puppeteer fallback required for: ${url}`);
 			const pageResult = await this.retrievePage({ url, locale, timezone });
+
+			// (B-2) SSRF 방어 강화: 리다이렉트 후 최종 URL 재검증
+			this.validateUrl(pageResult.finalUrl);
+
 			url = pageResult.finalUrl;
 			contentType = pageResult.contentType;
 
