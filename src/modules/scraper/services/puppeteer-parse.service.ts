@@ -9,6 +9,7 @@ import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
 import { ContentQualityEvaluator } from './content-quality-evaluator';
+import { SecurityService } from '../../security/services/security.service';
 
 // ---------------------- CONSTANTS ----------------------
 const NON_SCRIPT_HOSTS = ['medium.com', 'fastcompany.com', 'fortelabs.com'] as const;
@@ -48,12 +49,16 @@ export class PuppeteerParseService {
 		private readonly preHandlerService: RefactoredPreHandlerService,
 		private readonly articleService: ArticleService,
 		private readonly contentQualityEvaluator: ContentQualityEvaluator,
+		private readonly securityService: SecurityService,
 	) {}
 
 	/**
 	 * Fetch readable content from the given URL.
 	 */
 	async fetchContent({ url, locale, timezone }: FetchContentInput): Promise<ScrapedContentOutput> {
+		// (A) 보안 강화: 유해 URL 차단
+		await this.securityService.checkUrlSafety(url);
+
 		url = this.normalizeUrl(url);
 
 		// (1) Execute pre-handling using the new extensible service (품질 평가 포함)

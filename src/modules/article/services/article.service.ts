@@ -1,5 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Article } from '@prisma/client';
+import * as DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { ArticleRepository } from '../repositories/article.repository';
 import { CreateArticleInput } from '../dto/create-article.input';
 import { UpdateArticleInput } from '../dto/update-article.input';
@@ -46,15 +48,18 @@ export class ArticleService {
 		options: Omit<SaveScrapedContentInput, 'url'> = {},
 	): Promise<ArticleOutput> {
 		try {
+			// (B-3) XSS 방어: DB 저장 전 HTML 살균
+			const sanitizedContent = this.sanitizeHtml(scrapedContent.content);
+
 			// 단어 수와 읽기 시간 계산
-			const wordCount = this.calculateWordCount(scrapedContent.content);
+			const wordCount = this.calculateWordCount(sanitizedContent);
 			const readingTime = this.calculateReadingTime(wordCount);
 
 			const articleData: CreateArticleInput = {
 				url: scrapedContent.finalUrl, // 원본 URL 대신 최종 URL 사용
 				finalUrl: scrapedContent.finalUrl,
 				title: scrapedContent.title,
-				content: scrapedContent.content,
+				content: sanitizedContent, // 살균된 콘텐츠 저장
 				contentType: scrapedContent.contentType,
 				wordCount,
 				readingTime,
@@ -185,6 +190,22 @@ export class ArticleService {
 	}
 
 	// ==================== PRIVATE HELPERS ====================
+
+	/**
+	 * Sanitize HTML content to prevent XSS attacks.
+	 * @param html The HTML content to sanitize.
+	 * @returns The sanitized HTML content.
+	 */
+	private sanitizeHtml(html?: string): string | undefined {
+		if (!html) {
+			return undefined;
+		}
+		// JSDOM을 사용하여 서버 사이드에서 DOM 환경을 만듭니다.
+		const window = new JSDOM('').window;
+		const purify = DOMPurify(window);
+		// 기본 설정으로 HTML을 살균합니다.
+		return purify.sanitize(html);
+	}
 
 	/**
 	 * Article 엔티티를 ArticleOutput DTO로 변환합니다.

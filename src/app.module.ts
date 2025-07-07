@@ -15,6 +15,9 @@ import { DatabaseModule } from 'src/database/database.module';
 import { ScraperModule } from 'src/modules/scraper/scraper.module';
 import { ArticleModule } from 'src/modules/article/article.module';
 import { HealthController } from 'src/health.controller';
+import { PreHandlerModule } from './modules/pre-handler/pre-handler.module';
+import { SecurityModule } from './modules/security/security.module';
+import { UserModule } from './modules/user/user.module';
 
 @Module({
 	imports: [
@@ -37,7 +40,10 @@ import { HealthController } from 'src/health.controller';
 		// Modules
 		AuthModule,
 		ScraperModule,
+		PreHandlerModule,
 		ArticleModule,
+		SecurityModule,
+		UserModule,
 	],
 	controllers: [HealthController],
 	providers: [
