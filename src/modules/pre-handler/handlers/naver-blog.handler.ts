@@ -6,7 +6,6 @@ import {
 	ContentCleaningConfig,
 	TitleExtractionConfig,
 } from '../types/content-extraction.types';
-import { PreHandleResult } from '../dto/pre-handle-result.dto';
 import { JSDOM } from 'jsdom';
 import { postProcessDom } from '../utils/content-cleaning-pipeline';
 
@@ -90,19 +89,17 @@ export class NaverBlogHandler extends AbstractContentHandler {
 	}
 
 	/**
-	 * 네이버 블로그 콘텐츠를 처리하여 후처리된 결과를 반환합니다.
-	 * @param url 처리할 URL
-	 * @returns 후처리된 PreHandleResult 또는 null
+	 * 네이버 블로그 콘텐츠에 특화된 후처리 로직을 적용합니다.
+	 * @param content 추출된 HTML 콘텐츠
+	 * @returns 후처리된 HTML 콘텐츠
 	 */
-	public async handle(url: URL): Promise<PreHandleResult | null> {
-		const result = await super.handle(url);
-		if (!result || !result.content) return result;
-		const dom = new JSDOM(result.content);
+	protected override postProcess(content: string): string {
+		if (!content) {
+			return content;
+		}
+		const dom = new JSDOM(content);
 		const document = dom.window.document;
 		postProcessDom(document, { baseUrl: 'https://blog.naver.com' });
-		return {
-			...result,
-			content: document.body?.outerHTML ?? result.content,
-		};
+		return document.body?.outerHTML ?? content;
 	}
 }

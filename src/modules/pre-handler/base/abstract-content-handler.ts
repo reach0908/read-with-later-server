@@ -67,20 +67,31 @@ export abstract class AbstractContentHandler implements IContentHandler {
 	 */
 	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
-			this.logger.debug(`${this.handlerName} 콘텐츠 추출 시작: ${url.href}`);
-			const result = await this.extractContent(url);
+			const processedUrl = this.preProcessUrl(url);
+			this.logger.debug(`${this.handlerName} 콘텐츠 추출 시작: ${processedUrl.href}`);
+
+			const result = await this.extractContent(processedUrl);
+
 			if (!result.success) {
 				this.logger.debug(`${this.handlerName} 콘텐츠 추출 실패: ${result.error.message}`);
 				return null;
 			}
-			const { title, content } = result.data;
+
+			const { title } = result.data;
+			let content = result.data.content;
+
 			if (!content) {
-				this.logger.debug(`${this.handlerName} 콘텐츠 없음: ${url.href}`);
-				return null;
+				this.logger.debug(`${this.handlerName} 콘텐츠 없음: ${processedUrl.href}`);
+				// 콘텐츠가 없어도 제목이라도 있으면 반환해준다.
+				return title ? { url: processedUrl.href, title, contentType: 'text/html' } : null;
 			}
+
+			// 후처리 훅 호출
+			content = this.postProcess(content, processedUrl);
+
 			this.logger.log(`${this.handlerName} 콘텐츠 추출 성공: ${content.length} 글자`);
 			return {
-				url: url.href,
+				url: processedUrl.href,
 				title,
 				content,
 				contentType: 'text/html',
@@ -89,6 +100,28 @@ export abstract class AbstractContentHandler implements IContentHandler {
 			this.logger.warn(`${this.handlerName} 핸들러 처리 실패 ${url.href}: ${(error as Error).message}`);
 			return null;
 		}
+	}
+
+	/**
+	 * 콘텐츠 추출 전 URL을 가공하기 위한 훅 메서드.
+	 * 자식 클래스에서 필요에 따라 오버라이드하여 URL을 변경할 수 있습니다.
+	 * @param url 원본 URL
+	 * @returns 가공된 URL
+	 */
+	protected preProcessUrl(url: URL): URL {
+		return url;
+	}
+
+	/**
+	 * 콘텐츠 추출 후 후처리를 위한 훅 메서드.
+	 * 자식 클래스에서 필요에 따라 오버라이드할 수 있습니다.
+	 * @param content 추출된 HTML 콘텐츠
+	 * @param url 가공된 URL
+	 * @returns 후처리된 HTML 콘텐츠
+	 */
+	protected postProcess(content: string, _url: URL): string {
+		// 기본적으로는 아무 작업도 하지 않음
+		return content;
 	}
 
 	/**

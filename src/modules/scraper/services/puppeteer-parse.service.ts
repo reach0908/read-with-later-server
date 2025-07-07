@@ -6,7 +6,7 @@ import { BrowserService } from './browser.service';
 import { FetchContentInput } from '../dto/fetch-content.input';
 import { ScrapedContentOutput } from '../dto/scraped-content.output';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
-import { RefactoredPreHandlerService } from '../../pre-handler/pre-handler.service';
+import { PreHandlerService } from '../../pre-handler/pre-handler.service';
 import { ArticleService } from '../../article/services/article.service';
 import { ContentQualityEvaluator } from './content-quality-evaluator';
 import { SecurityService } from '../../security/services/security.service';
@@ -46,7 +46,7 @@ export class PuppeteerParseService {
 
 	constructor(
 		private readonly browserService: BrowserService,
-		private readonly preHandlerService: RefactoredPreHandlerService,
+		private readonly preHandlerService: PreHandlerService,
 		private readonly articleService: ArticleService,
 		private readonly contentQualityEvaluator: ContentQualityEvaluator,
 		private readonly securityService: SecurityService,

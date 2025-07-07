@@ -101,21 +101,21 @@ export class PdfHandler extends AbstractContentHandler {
 	 * @param url 처리할 URL
 	 * @returns PreHandleResult 또는 null
 	 */
-	public handle(url: URL): Promise<PreHandleResult | null> {
+	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
 			let title: string | undefined;
 			const filename = url.pathname.split('/').pop();
 			if (filename && filename.includes('.pdf')) {
 				title = extractTitleFromPath(filename, { removeExtension: true });
 			}
-			return Promise.resolve({
+			return {
 				url: url.href,
 				title,
 				contentType: 'application/pdf',
-			});
+			};
 		} catch (error) {
 			this.logger.warn(`PdfHandler failed for ${url.href}: ${(error as Error).message}`);
-			return Promise.resolve(null);
+			return null;
 		}
 	}
 }

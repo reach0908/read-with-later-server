@@ -11,7 +11,6 @@ import {
 	ContentCleaningConfig,
 	TitleExtractionConfig,
 } from '../types/content-extraction.types';
-import { PreHandleResult } from '../dto/pre-handle-result.dto';
 
 /**
  * News site transformations.
@@ -282,22 +281,10 @@ export class NewsSiteHandler extends AbstractContentHandler {
 
 	/**
 	 * 뉴스사이트는 URL 변환 후 표준 추출 프로세스 사용
-	 */
-	public async handle(url: URL): Promise<PreHandleResult | null> {
-		try {
-			const transformedUrl = this.transformUrl(url);
-			return await super.handle(transformedUrl);
-		} catch (error) {
-			this.logger.warn(`NewsSiteHandler failed for ${url.href}: ${(error as Error).message}`);
-			return null;
-		}
-	}
-
-	/**
-	 * 도메인별 URL 변환
 	 * @param url 원본 URL
+	 * @returns 가공된 URL
 	 */
-	private transformUrl(url: URL): URL {
+	protected override preProcessUrl(url: URL): URL {
 		const domain = Object.keys(NEWS_SITE_TRANSFORMATIONS).find((d) => url.hostname.endsWith(d));
 		if (domain) {
 			return NEWS_SITE_TRANSFORMATIONS[domain](url);

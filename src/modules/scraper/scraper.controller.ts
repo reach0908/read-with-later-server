@@ -17,7 +17,7 @@ import { AuthRequest } from 'src/types';
 import { PuppeteerParseService, FetchContentWithSaveInput } from './services/puppeteer-parse.service';
 import { FetchContentInput } from './dto/fetch-content.input';
 import { ScrapedContentOutput } from './dto/scraped-content.output';
-import { RefactoredPreHandlerService } from '../pre-handler/pre-handler.service';
+import { PreHandlerService } from '../pre-handler/pre-handler.service';
 import { PreHandleResult } from '../pre-handler/dto/pre-handle-result.dto';
 import { SaveContentInput } from './dto/save-content.input';
 
@@ -26,7 +26,7 @@ import { SaveContentInput } from './dto/save-content.input';
 export class ScraperController {
 	constructor(
 		private readonly puppeteerParseService: PuppeteerParseService,
-		private readonly preHandlerService: RefactoredPreHandlerService,
+		private readonly preHandlerService: PreHandlerService,
 	) {}
 
 	/**

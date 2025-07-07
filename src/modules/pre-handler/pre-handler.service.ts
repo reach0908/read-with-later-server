@@ -1,19 +1,19 @@
 /**
- * 리팩토링된 PreHandlerService
- * - HandlerFactory 기반 함수형/전략 패턴 적용
+ * Pre-Handler Service
+ * - HandlerFactory를 사용하여 URL에 맞는 콘텐츠 처리 전략을 실행합니다.
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { PreHandleResult } from './dto/pre-handle-result.dto';
 import { HandlerFactory } from './factories/handler-factory';
-import { IContentHandler } from './interfaces/content-handler.interface';
 import { ContentQualityEvaluator } from '../scraper/services/content-quality-evaluator';
 
 /**
- * 리팩토링된 PreHandlerService
+ * 콘텐츠 사전 처리 서비스
+ * - 핸들러 체인을 순차적으로 실행하여 URL에서 콘텐츠를 추출하고 정제합니다.
  */
 @Injectable()
-export class RefactoredPreHandlerService {
-	private readonly logger = new Logger(RefactoredPreHandlerService.name);
+export class PreHandlerService {
+	private readonly logger = new Logger(PreHandlerService.name);
 
 	constructor(
 		private readonly handlerFactory: HandlerFactory,
@@ -22,91 +22,64 @@ export class RefactoredPreHandlerService {
 
 	/**
 	 * 핸들러 체인을 순차적으로 실행하여 결과를 반환합니다.
-	 * 품질 평가를 통합하여 효율적인 처리를 수행합니다.
+	 * 품질 좋은 콘텐츠를 추출한 첫 번째 핸들러의 결과를 즉시 반환합니다.
 	 * @param urlString 처리할 URL 문자열
 	 * @returns PreHandleResult
 	 */
 	public async execute(urlString: string): Promise<PreHandleResult> {
 		const handlers = this.handlerFactory.getAllHandlers();
-		this.logger.debug(
-			'[DEBUG] Handler chain: ' + handlers.map((h) => (h ? h.constructor.name : 'undefined')).join(', '),
-		);
-		const currentUrl = new URL(urlString);
-		this.logger.debug(`리팩토링된 pre-handler 실행 시작: ${urlString}`);
-		const result = await this.executeHandlerChainWithQualityCheck(handlers, currentUrl, {
+		const initialUrl = new URL(urlString);
+
+		this.logger.debug(`Pre-handler 실행 시작: ${urlString}`);
+		this.logger.debug(`실행할 핸들러 순서: ${handlers.map((h) => h.constructor.name).join(' -> ')}`);
+
+		for (const handler of handlers) {
+			if (!handler.canHandle(initialUrl)) {
+				continue;
+			}
+
+			this.logger.debug(`핸들러 [${handler.constructor.name}] 실행: ${initialUrl.href}`);
+			try {
+				const result = await handler.handle(initialUrl);
+
+				if (result) {
+					// 성공 조건 1: PDF, RSS 등 최종 콘텐츠 타입을 식별한 경우 즉시 반환
+					if (result.contentType && !['text/html', 'text/plain'].includes(result.contentType)) {
+						this.logger.log(
+							`[${handler.constructor.name}] 핸들러가 최종 콘텐츠 타입(${result.contentType}) 식별 성공. 체인 중단.`,
+						);
+						return result;
+					}
+
+					// 성공 조건 2: 품질 좋은 HTML 콘텐츠를 추출한 경우 즉시 반환
+					if (result.content && this.isContentQualityGood(result.content, result.url)) {
+						this.logger.log(
+							`[${handler.constructor.name}] 핸들러가 품질 좋은 콘텐츠 추출 성공. 체인 중단.`,
+						);
+						return result;
+					}
+
+					this.logger.debug(
+						`[${handler.constructor.name}] 핸들러가 결과를 반환했으나 최종 성공 조건에 미치지 못함. 다음 핸들러 실행.`,
+					);
+				}
+			} catch (error) {
+				this.logger.warn(`[${handler.constructor.name}] 핸들러 처리 실패: ${(error as Error).message}`);
+			}
+		}
+
+		this.logger.warn(`모든 핸들러가 콘텐츠 추출에 실패했습니다: ${urlString}`);
+		return {
 			url: urlString,
 			title: undefined,
 			content: undefined,
 			contentType: undefined,
-		});
-		this.logger.debug(`리팩토링된 pre-handler 실행 완료. 최종 결과: url=${result.url}, title=${result.title}`);
-		return result;
+		};
 	}
 
 	/**
-	 * 품질 평가를 통합한 핸들러 체인 실행
-	 * @param handlers 핸들러 배열
-	 * @param currentUrl 현재 URL
-	 * @param accumulatedResult 누적 결과
-	 * @returns PreHandleResult
-	 */
-	private async executeHandlerChainWithQualityCheck(
-		handlers: IContentHandler[],
-		currentUrl: URL,
-		accumulatedResult: PreHandleResult,
-	): Promise<PreHandleResult> {
-		if (handlers.length === 0) {
-			return accumulatedResult;
-		}
-		// 이미 품질이 좋은 컨텐츠가 있으면 중단
-		if (accumulatedResult.content && this.isContentQualityGood(accumulatedResult.content, currentUrl.href)) {
-			this.logger.debug('이미 품질이 좋은 컨텐츠가 추출되어 있으므로 핸들러 체인 중단');
-			return accumulatedResult;
-		}
-		const [currentHandler, ...remainingHandlers] = handlers;
-		this.logger.debug(
-			`[DEBUG] ${currentHandler.constructor.name}.canHandle(${currentUrl.hostname}) = ${currentHandler.canHandle(currentUrl)}`,
-		);
-		if (!currentHandler.canHandle(currentUrl)) {
-			return this.executeHandlerChainWithQualityCheck(remainingHandlers, currentUrl, accumulatedResult);
-		}
-		this.logger.debug(`핸들러 ${currentHandler.constructor.name}가 ${currentUrl.href} 처리`);
-		try {
-			const result = await currentHandler.handle(currentUrl);
-			if (!result) {
-				return this.executeHandlerChainWithQualityCheck(remainingHandlers, currentUrl, accumulatedResult);
-			}
-			const updatedResult = this.updateAccumulatedResult(accumulatedResult, result);
-			// 컨텐츠가 추출되었으면 품질 평가
-			if (result.content) {
-				const quality = this.contentQualityEvaluator.evaluate(
-					result.content,
-					result.content,
-					{},
-					currentUrl.href,
-				);
-				this.logger.log(
-					`핸들러 ${currentHandler.constructor.name} 품질 평가: chars=${quality.characterCount}, paragraphs=${quality.paragraphCount}, score=${quality.readabilityScore}, readable=${quality.isProbablyReadable}`,
-				);
-				if (quality.isProbablyReadable) {
-					this.logger.log(`핸들러 ${currentHandler.constructor.name}가 품질 좋은 콘텐츠 추출 성공`);
-					return updatedResult;
-				} else {
-					this.logger.debug(
-						`핸들러 ${currentHandler.constructor.name}의 컨텐츠 품질이 낮음, 다음 핸들러 시도`,
-					);
-				}
-			}
-			return this.executeHandlerChainWithQualityCheck(remainingHandlers, currentUrl, updatedResult);
-		} catch (error) {
-			this.logger.warn(`핸들러 ${currentHandler.constructor.name} 처리 실패: ${(error as Error).message}`);
-			return this.executeHandlerChainWithQualityCheck(remainingHandlers, currentUrl, accumulatedResult);
-		}
-	}
-
-	/**
-	 * 컨텐츠 품질이 좋은지 빠르게 판단합니다.
-	 * @param content 컨텐츠
+	 * 콘텐츠 품질이 좋은지 빠르게 판단합니다.
+	 * @param content 콘텐츠
 	 * @param url URL
 	 * @returns boolean
 	 */
@@ -118,20 +91,5 @@ export class RefactoredPreHandlerService {
 			this.logger.warn(`품질 평가 실패: ${(error as Error).message}`);
 			return false;
 		}
-	}
-
-	/**
-	 * 누적 결과를 업데이트합니다.
-	 * @param accumulated 기존 결과
-	 * @param newResult 새 결과
-	 * @returns 병합된 결과
-	 */
-	private updateAccumulatedResult(accumulated: PreHandleResult, newResult: PreHandleResult): PreHandleResult {
-		return {
-			url: newResult.url || accumulated.url,
-			title: newResult.title || accumulated.title,
-			content: newResult.content || accumulated.content,
-			contentType: newResult.contentType || accumulated.contentType,
-		};
 	}
 }

@@ -3,63 +3,23 @@
  * - 도메인별 핸들러를 DI 받아 URL에 따라 적절한 핸들러를 반환
  * - getAllHandlers()로 전체 핸들러 배열 반환
  */
-import { Injectable } from '@nestjs/common';
-import { IContentHandler } from '../interfaces/content-handler.interface';
-import { MailyHandler } from '../handlers/maily.handler';
-import { StibeeHandler } from '../handlers/stibee.handler';
-import { PdfHandler } from '../handlers/pdf.handler';
-import { RssHandler } from '../handlers/rss.handler';
-import { YoutubeHandler } from '../handlers/youtube.handler';
-import { NewsSiteHandler } from '../handlers/news-site.handler';
-import { TistoryHandler } from '../handlers/tistory.handler';
-import { MediumHandler } from '../handlers/medium.handler';
-import { NaverBlogHandler } from '../handlers/naver-blog.handler';
-import { DomainSpecificHandler } from '../handlers/domain-specific.handler';
-import { SocialMediaHandler } from '../handlers/social-media.handler';
-import { ReadabilityHandler } from '../handlers/readability.handler';
-import { DisquietHandler } from '../handlers/disquiet.handler';
-// 필요시 다른 핸들러 import
+import { Inject, Injectable } from '@nestjs/common';
+import { IContentHandler, CONTENT_HANDLER_TOKEN } from '../interfaces/content-handler.interface';
 
 /**
  * 핸들러 팩토리 클래스
+ *
+ * @description
+ * NestJS의 Custom Provider와 Injection Token을 사용하여 모든 핸들러를 동적으로 주입받습니다.
+ * 이를 통해 새로운 핸들러가 추가되어도 팩토리 코드를 수정할 필요가 없으므로
+ * OCP(개방-폐쇄 원칙)를 준수합니다. 핸들러의 실행 순서는 pre-handler.module.ts에서 관리됩니다.
  */
 @Injectable()
 export class HandlerFactory {
-	private readonly handlerChain: IContentHandler[];
-
 	constructor(
-		private readonly mailyHandler: MailyHandler,
-		private readonly stibeeHandler: StibeeHandler,
-		private readonly pdfHandler: PdfHandler,
-		private readonly rssHandler: RssHandler,
-		private readonly youtubeHandler: YoutubeHandler,
-		private readonly newsSiteHandler: NewsSiteHandler,
-		private readonly tistoryHandler: TistoryHandler,
-		private readonly mediumHandler: MediumHandler,
-		private readonly disquietHandler: DisquietHandler,
-		private readonly naverBlogHandler: NaverBlogHandler,
-		private readonly domainSpecificHandler: DomainSpecificHandler,
-		private readonly socialMediaHandler: SocialMediaHandler,
-		private readonly readabilityHandler: ReadabilityHandler,
-		// 필요시 다른 핸들러 DI
-	) {
-		// 우선순위: 도메인 특화 → 소셜/뉴스 → 일반 → fallback
-		this.handlerChain = [
-			this.mailyHandler,
-			this.stibeeHandler,
-			this.pdfHandler,
-			this.rssHandler,
-			this.youtubeHandler,
-			this.tistoryHandler,
-			this.naverBlogHandler,
-			this.mediumHandler,
-			this.disquietHandler,
-			this.domainSpecificHandler,
-			this.socialMediaHandler,
-			this.newsSiteHandler,
-			this.readabilityHandler, // 항상 마지막 fallback
-		];
-	}
+		@Inject(CONTENT_HANDLER_TOKEN)
+		private readonly handlerChain: IContentHandler[],
+	) {}
 
 	/**
 	 * URL에 적합한 핸들러 반환 (우선순위 순회)

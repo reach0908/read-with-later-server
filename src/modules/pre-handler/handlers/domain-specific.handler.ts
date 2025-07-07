@@ -364,11 +364,11 @@ export class DomainSpecificHandler implements IContentHandler {
 	 * @param url - The URL of the content to handle.
 	 * @returns A `PreHandleResult` with the new URL, or `null` on failure.
 	 */
-	public handle(url: URL): Promise<PreHandleResult | null> {
+	public async handle(url: URL): Promise<PreHandleResult | null> {
 		const domain = Object.keys(DOMAIN_TRANSFORMATIONS).find((d) => url.hostname.endsWith(d));
 
 		if (!domain) {
-			return Promise.resolve(null);
+			return null;
 		}
 
 		try {
@@ -390,15 +390,15 @@ export class DomainSpecificHandler implements IContentHandler {
 				title = this.extractWikipediaTitle(url);
 			}
 
-			return Promise.resolve({
+			return {
 				url: newUrl.href,
 				title,
 				content,
 				contentType,
-			});
+			};
 		} catch (error) {
 			this.logger.warn(`DomainSpecificHandler failed for ${url.href}: ${(error as Error).message}`);
-			return Promise.resolve(null);
+			return null;
 		}
 	}
 

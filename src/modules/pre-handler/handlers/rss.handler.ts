@@ -112,7 +112,7 @@ export class RssHandler extends AbstractContentHandler {
 	 * @param url 처리할 URL
 	 * @returns PreHandleResult 또는 null
 	 */
-	public handle(url: URL): Promise<PreHandleResult | null> {
+	public async handle(url: URL): Promise<PreHandleResult | null> {
 		try {
 			let title: string | undefined;
 			const pathParts = url.pathname.split('/').filter((part) => part.length > 0);
@@ -133,14 +133,14 @@ export class RssHandler extends AbstractContentHandler {
 			if (url.pathname.toLowerCase().includes('atom')) {
 				contentType = 'application/atom+xml';
 			}
-			return Promise.resolve({
+			return {
 				url: url.href,
 				title,
 				contentType,
-			});
+			};
 		} catch (error) {
 			this.logger.warn(`RssHandler failed for ${url.href}: ${(error as Error).message}`);
-			return Promise.resolve(null);
+			return null;
 		}
 	}
 }

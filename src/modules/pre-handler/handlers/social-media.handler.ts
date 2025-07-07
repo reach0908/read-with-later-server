@@ -149,11 +149,11 @@ export class SocialMediaHandler implements IContentHandler {
 	 * @param url - The social media URL to handle.
 	 * @returns A `PreHandleResult` with the transformed URL, or `null` on failure.
 	 */
-	public handle(url: URL): Promise<PreHandleResult | null> {
+	public async handle(url: URL): Promise<PreHandleResult | null> {
 		const domain = Object.keys(SOCIAL_MEDIA_TRANSFORMATIONS).find((d) => url.hostname.endsWith(d));
 
 		if (!domain) {
-			return Promise.resolve(null);
+			return null;
 		}
 
 		try {
@@ -179,14 +179,14 @@ export class SocialMediaHandler implements IContentHandler {
 				}
 			}
 
-			return Promise.resolve({
+			return {
 				url: newUrl.href,
 				title,
 				contentType: 'text/html',
-			});
+			};
 		} catch (error) {
 			this.logger.warn(`SocialMediaHandler failed for ${url.href}: ${(error as Error).message}`);
-			return Promise.resolve(null);
+			return null;
 		}
 	}
 

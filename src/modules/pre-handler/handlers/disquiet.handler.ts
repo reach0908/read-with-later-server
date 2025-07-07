@@ -306,7 +306,7 @@ export class DisquietHandler extends AbstractContentHandler {
 	/**
 	 * 여러 div(본문 파편)를 모두 합쳐서 반환하는 extractContent 오버라이드
 	 */
-	public async extractContent(url: URL): Promise<Result<ContentExtractionResult, Error>> {
+	protected override async extractContent(url: URL): Promise<Result<ContentExtractionResult, Error>> {
 		try {
 			const htmlResult = await fetchHtml(url.href, this.httpConfig);
 			if (!htmlResult.success) {
