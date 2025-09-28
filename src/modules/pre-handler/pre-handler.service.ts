@@ -48,6 +48,7 @@ export class PreHandlerService {
 						this.logger.log(
 							`[${handler.constructor.name}] 핸들러가 최종 콘텐츠 타입(${result.contentType}) 식별 성공. 체인 중단.`,
 						);
+						result.handlerUsed = handler.constructor.name;
 						return result;
 					}
 
@@ -56,6 +57,7 @@ export class PreHandlerService {
 						this.logger.log(
 							`[${handler.constructor.name}] 핸들러가 품질 좋은 콘텐츠 추출 성공. 체인 중단.`,
 						);
+						result.handlerUsed = handler.constructor.name;
 						return result;
 					}
 

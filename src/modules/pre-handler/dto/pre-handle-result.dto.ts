@@ -25,4 +25,10 @@ export class PreHandleResult {
 	 * @optional
 	 */
 	contentType?: string;
+
+	/**
+	 * The name of the handler that successfully processed the URL.
+	 * @optional
+	 */
+	handlerUsed?: string;
 }

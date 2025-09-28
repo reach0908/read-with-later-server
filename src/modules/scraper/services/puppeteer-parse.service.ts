@@ -56,55 +56,66 @@ export class PuppeteerParseService {
 	 * Fetch readable content from the given URL.
 	 */
 	async fetchContent({ url, locale, timezone }: FetchContentInput): Promise<ScrapedContentOutput> {
-		// (A) 보안 강화: 유해 URL 차단
-		await this.securityService.checkUrlSafety(url);
+		// 1. URL 정규화 및 보안 검사 (모든 요청의 시작점)
+		const normalizedUrl = this.normalizeUrl(url);
+		await this.securityService.checkUrlSafety(normalizedUrl);
 
-		url = this.normalizeUrl(url);
+		// 2. Pre-handling (Fast Path)
+		const preHandleResult = await this.preHandlerService.execute(normalizedUrl);
 
-		// (1) Execute pre-handling using the new extensible service (품질 평가 포함)
-		const preHandleResult = await this.preHandlerService.execute(url);
-
-		let { title, content, contentType } = preHandleResult;
-		url = preHandleResult.url; // URL might have been changed by a handler
-
-		// Log pre-handling results
-		if (content) {
-			this.logger.log(`Pre-handler extracted content (${content.length} chars) from: ${url}`);
+		// PDF 같은 특수 콘텐츠는 여기서 처리하고 바로 반환
+		if (preHandleResult.contentType === 'application/pdf') {
+			this.logger.log(`PDF content detected. Skipping further processing for: ${preHandleResult.url}`);
+			return {
+				finalUrl: preHandleResult.url,
+				title: preHandleResult.title,
+				content: preHandleResult.content,
+				contentType: preHandleResult.contentType,
+			};
 		}
-		if (title) {
-			this.logger.log(`Pre-handler extracted title: ${title}`);
-		}
 
-		// (2) Pre-Handler에서 품질이 좋은 컨텐츠를 추출하지 못한 경우에만 Puppeteer fallback
-		const shouldUsePuppeteer = contentType !== 'application/pdf' && !content;
+		let finalContent = preHandleResult.content;
+		let finalTitle = preHandleResult.title;
+		let finalUrl = preHandleResult.url;
+		let finalContentType = preHandleResult.contentType;
 
-		if (shouldUsePuppeteer) {
-			this.logger.debug(`Puppeteer fallback required for: ${url}`);
-			const pageResult = await this.retrievePage({ url, locale, timezone });
-
-			// (B-2) SSRF 방어 강화: 리다이렉트 후 최종 URL 재검증
-			this.validateUrl(pageResult.finalUrl);
-
-			url = pageResult.finalUrl;
-			contentType = pageResult.contentType;
-
-			if (pageResult.page) {
-				const html = await this.retrieveHtml(pageResult.page);
-				// 사전 처리에서 이미 타이틀이 있다면 유지, 없다면 HTML에서 추출
-				title = title || html.title;
-
-				// 도메인 특화 로직 제거: 핸들러에서 처리되므로 여기서는 Readability만 적용
-				if (html.content) {
-					content = await this.applyReadabilityToHtml(html.content, url);
-				}
+		// 3. 품질 평가 및 Puppeteer 폴백 결정
+		// Pre-handler가 HTML을 제공했거나, 아무것도 제공하지 못한 경우 Puppeteer 사용을 고려
+		let needsPuppeteer = !finalContent;
+		if (finalContent && finalContentType?.includes('html')) {
+			const qualityMetrics = this.contentQualityEvaluator.evaluate(finalContent, finalContent, {}, finalUrl);
+			if (this.contentQualityEvaluator.shouldUsePuppeteer(qualityMetrics, {}, finalUrl)) {
+				needsPuppeteer = true;
+				this.logger.log(`Content quality is low. Falling back to Puppeteer for: ${finalUrl}`);
+			} else {
+				this.logger.log(`Content quality is sufficient. Using pre-handled content for: ${finalUrl}`);
 			}
-
-			await pageResult.context?.close();
-		} else if (content) {
-			this.logger.log(`Using pre-processed content, skipping Puppeteer for: ${url}`);
 		}
 
-		return { finalUrl: url, title, content, contentType };
+		// 4. Puppeteer 실행 (Slow Path)
+		if (needsPuppeteer) {
+			this.logger.log(`Executing Puppeteer fallback for: ${finalUrl}`);
+			const puppeteerResult = await this.runPuppeteerScraping({ url: finalUrl, locale, timezone });
+
+			// Puppeteer 결과를 최종 결과로 사용 (Readability는 나중에 일괄 적용)
+			finalContent = puppeteerResult.content;
+			finalTitle = finalTitle || puppeteerResult.title; // Pre-handler 타이틀이 있으면 유지
+			finalUrl = puppeteerResult.finalUrl;
+			finalContentType = puppeteerResult.contentType;
+		}
+
+		// 5. 최종 정제 (Readability)
+		// HTML 콘텐츠가 있는 경우, 항상 Readability를 적용하여 일관된 품질의 본문 추출
+		if (finalContent && finalContentType?.includes('html')) {
+			finalContent = await this.applyReadabilityToHtml(finalContent, finalUrl);
+		}
+
+		return {
+			finalUrl,
+			title: finalTitle,
+			content: finalContent,
+			contentType: finalContentType,
+		};
 	}
 
 	/**
@@ -385,5 +396,37 @@ export class PuppeteerParseService {
 
 		// 실패 시 원본 반환
 		return Promise.resolve(html);
+	}
+
+	/**
+	 * Executes the Puppeteer scraping process.
+	 * This includes navigating to the page, extracting HTML, and closing resources.
+	 * @param params Parameters for page retrieval.
+	 * @returns The scraped content, not yet processed by Readability.
+	 */
+	private async runPuppeteerScraping(params: RetrievePageParams): Promise<ScrapedContentOutput> {
+		const pageResult = await this.retrievePage(params);
+
+		// SSRF 방어 강화: 리다이렉트 후 최종 URL 재검증
+		this.validateUrl(pageResult.finalUrl);
+		await this.securityService.checkUrlSafety(pageResult.finalUrl); // 리다이렉트된 URL도 재검증
+
+		let content: string | undefined;
+		let title: string | undefined;
+
+		if (pageResult.page) {
+			const html = await this.retrieveHtml(pageResult.page);
+			title = html.title;
+			content = html.content; // Readability는 상위 스코프에서 일괄 적용
+		}
+
+		await pageResult.context?.close();
+
+		return {
+			finalUrl: pageResult.finalUrl,
+			title,
+			content,
+			contentType: pageResult.contentType,
+		};
 	}
 }
